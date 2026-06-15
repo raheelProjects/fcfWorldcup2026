@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FCF FIFA 2026 Fantasy League</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --gold: #F5C842;
+    --gold-dim: #c9a22e;
+    --pitch: #0a1f0e;
+    --pitch-mid: #112918;
+    --pitch-light: #1a3d22;
+    --surface: #0f2414;
+    --card: #162d1c;
+    --card-hover: #1e3d26;
+    --border: rgba(245,200,66,0.15);
+    --text: #e8f0e9;
+    --muted: #7a9e82;
+    --red: #e05252;
+    --green: #4caf6e;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--pitch);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--pitch-mid) 0%, var(--pitch) 100%);
+    border-bottom: 2px solid var(--gold);
+    padding: 20px 16px 16px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .header-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 7vw, 48px);
+    letter-spacing: 2px;
+    color: var(--white);
+    line-height: 1;
+  }
+  .header-title span { color: var(--gold); }
+  .header-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .refresh-btn {
+    background: var(--gold);
+    color: var(--pitch);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { background: var(--gold-dim); transform: scale(1.03); }
+  .last-updated {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--pitch-mid);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 12px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'Inter', sans-serif;
+  }
+  .tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* MAIN */
+  .main { padding: 16px; max-width: 900px; margin: 0 auto; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* LEADERBOARD */
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .leaderboard { width: 100%; border-collapse: collapse; }
+  .leaderboard thead tr {
+    background: var(--pitch-light);
+  }
+  .leaderboard th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  .leaderboard th.right, .leaderboard td.right { text-align: right; }
+  .leaderboard th.center, .leaderboard td.center { text-align: center; }
+
+  .leaderboard tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+  .leaderboard tbody tr:hover { background: var(--card-hover); }
+
+  .leaderboard td {
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
+  .rank-cell {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    width: 44px;
+    color: var(--muted);
+  }
+  .rank-1 { color: #FFD700; }
+  .rank-2 { color: #C0C0C0; }
+  .rank-3 { color: #CD7F32; }
+
+  .player-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .player-teams {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .team-flag-tiny {
+    background: var(--pitch-light);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
+  .pts-cell {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    color: var(--gold);
+    text-align: right;
+  }
+  .stat-cell {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+
+  .top3-badge {
+    display: inline-block;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-right: 4px;
+  }
+  .badge-1 { background: #FFD700; color: #000; }
+  .badge-2 { background: #C0C0C0; color: #000; }
+  .badge-3 { background: #CD7F32; color: #000; }
+
+  /* CARDS */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .player-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    transition: all 0.2s;
+  }
+  .player-card:hover {
+    border-color: rgba(245,200,66,0.4);
+    transform: translateY(-2px);
+    background: var(--card-hover);
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .card-rank {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+  .card-pts {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .card-pts-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-align: right;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .card-name {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  .card-teams {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .card-team {
+    background: var(--pitch-light);
+    border-radius: 6px;
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+  .card-team-name {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+  .card-team-pts {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .card-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .card-stat {
+    text-align: center;
+    flex: 1;
+  }
+  .card-stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .card-stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+
+  /* RULES PANEL */
+  .rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .rule-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .rule-pts {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+  }
+  .rule-pts.pos { color: var(--green); }
+  .rule-pts.neg { color: var(--red); }
+  .rule-pts.gold { color: var(--gold); }
+  .rule-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tiebreaker {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .tiebreaker h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .tiebreaker ol {
+    padding-left: 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .tiebreaker ol li { color: var(--text); }
+
+  /* LOADING */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .loading-icon {
+    font-size: 40px;
+    animation: spin 1.5s linear infinite;
+    display: block;
+    margin-bottom: 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: rgba(224,82,82,0.1);
+    border: 1px solid rgba(224,82,82,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--red);
+    font-size: 13px;
+    text-align: center;
+    margin: 20px 0;
+  }
+
+  /* MOBILE */
+  @media (max-width: 600px) {
+    .hide-mobile { display: none; }
+    .leaderboard th, .leaderboard td { padding: 9px 8px; }
+    .pts-cell { font-size: 20px; }
+    .cards-grid { grid-template-columns: 1fr; }
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, var(--card) 25%, var(--card-hover) 50%, var(--card) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+    height: 16px;
+    margin: 4px 0;
+  }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .trophy { font-size: 16px; }
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-eyebrow">⚽ Fantasy League</div>
+  <div class="header-title">FCF <span>FIFA 2026</span></div>
+  <div class="header-meta">
+    <span class="last-updated"><span class="status-dot"></span><span id="update-time">Loading...</span></span>
+    <button class="refresh-btn" onclick="fetchData()">↻ Refresh</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('leaderboard', this)">🏆 Leaderboard</button>
+  <button class="tab" onclick="switchTab('cards', this)">📊 Team Cards</button>
+  <button class="tab" onclick="switchTab('rules', this)">📋 Rules</button>
+</div>
+
+<div class="main">
+
+  <!-- LEADERBOARD -->
+  <div id="tab-leaderboard" class="tab-panel active">
+    <div class="section-title">🏆 Standings</div>
+    <div id="leaderboard-container">
+      <div class="loading"><span class="loading-icon">⚽</span>Fetching live data...</div>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div id="tab-cards" class="tab-panel">
+    <div class="section-title">📊 Player Cards</div>
+    <div id="cards-container" class="cards-grid">
+      <div class="loading"><span class="loading-icon">⚽</span>Fetching live data...</div>
+    </div>
+  </div>
+
+  <!-- RULES -->
+  <div id="tab-rules" class="tab-panel">
+    <div class="section-title">📋 Scoring Rules</div>
+    <div class="rules-grid">
+      <div class="rule-card"><div class="rule-pts pos">+4</div><div class="rule-label">Win</div></div>
+      <div class="rule-card"><div class="rule-pts pos">+2</div><div class="rule-label">Draw</div></div>
+      <div class="rule-card"><div class="rule-pts neg">-1</div><div class="rule-label">Loss</div></div>
+      <div class="rule-card"><div class="rule-pts pos">+2</div><div class="rule-label">Clean Sheet</div></div>
+      <div class="rule-card"><div class="rule-pts pos">+1</div><div class="rule-label">Goal Scored</div></div>
+      <div class="rule-card"><div class="rule-pts neg">-1</div><div class="rule-label">Goal Conceded</div></div>
+      <div class="rule-card"><div class="rule-pts gold">+5</div><div class="rule-label">World Cup Win</div></div>
+    </div>
+    <div class="tiebreaker">
+      <h3>⚖️ Tiebreaker Order</h3>
+      <ol>
+        <li>Goal Difference</li>
+        <li>Number of Wins</li>
+        <li>Number of Goals For</li>
+        <li>Less Losses</li>
+        <li>Less Goals Against</li>
+      </ol>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_KEY = '9920a0ad18364824b98ecdc8c708a577';
+const WC_2026_ID = 2000; // football-data.org World Cup 2026 competition ID
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+const PARTICIPANTS = [
+  { name: "Taha Farooqui", teams: ["France", "Netherlands", "Uruguay", "Norway"] },
+  { name: "Ahmed Abid", teams: ["France", "Netherlands", "Morocco", "Uruguay"] },
+  { name: "Fasih Shaikh", teams: ["France", "Morocco", "Netherlands", "Japan"] },
+  { name: "Aisar Ali", teams: ["Argentina", "Germany", "Mexico", "Colombia"] },
+  { name: "Safi Ullah Jawed", teams: ["Portugal", "Germany", "Morocco", "Mexico"] },
+  { name: "Saud Hassan Khan", teams: ["Spain", "Germany", "Netherlands", "Colombia"] },
+  { name: "Muhammad Saqlain", teams: ["France", "Germany", "Netherlands", "Uruguay"] },
+  { name: "Zain Vohra", teams: ["France", "Germany", "Netherlands", "Norway"] },
+  { name: "Wasi Tariq", teams: ["Spain", "Germany", "Netherlands", "Norway"] },
+  { name: "Hussain Rizvi", teams: ["Brazil", "Germany", "Iran", "Japan"] },
+  { name: "Hasan Mustafa", teams: ["Brazil", "Belgium", "Netherlands", "USA"] },
+  { name: "Ahmed Abdullah", teams: ["Portugal", "England", "Mexico", "Colombia"] },
+  { name: "Muhammad Atif", teams: ["France", "England", "Netherlands", "Mexico"] },
+  { name: "Hassan Akhtar", teams: ["France", "England", "Morocco", "Japan"] },
+  { name: "Umer Murtaza", teams: ["France", "Brazil", "Morocco", "Croatia"] },
+  { name: "Moatasim bin Hisham", teams: ["France", "Brazil", "Norway", "Croatia"] },
+  { name: "Abdul Wahab Ahmed", teams: ["Portugal", "England", "Belgium", "Norway"] },
+  { name: "Suffian Ramay", teams: ["Spain", "Brazil", "Norway", "Saudi Arabia"] },
+  { name: "Shoaib Ghalib", teams: ["Portugal", "Argentina", "Belgium", "USA"] },
+  { name: "Yasir Obaid", teams: ["Portugal", "Brazil", "Denmark", "Japan"] },
+  { name: "Kumel Haider", teams: ["Portugal", "Morocco", "Croatia", "Turkey"] },
+  { name: "Syed Hamza Hussain", teams: ["Portugal", "Brazil", "Belgium", "Turkey"] },
+  { name: "Ahmed Mallick", teams: ["Portugal", "Argentina", "Croatia", "Belgium"] },
+  { name: "Manay Khan", teams: ["Spain", "England", "Colombia", "USA"] },
+  { name: "Ghazi Abbas", teams: ["Spain", "Argentina", "Morocco", "Norway"] },
+  { name: "Muhammad Mubashir", teams: ["Argentina", "England", "Morocco", "Japan"] },
+  { name: "Hamza Azad", teams: ["England", "Germany", "Iran", "USA"] },
+  { name: "Ahsan Raza", teams: ["Portugal", "Argentina", "Norway", "Croatia"] },
+  { name: "Aman Ullah", teams: ["Spain", "England", "Norway", "Ivory Coast"] },
+  { name: "Shehroz Mumtaz", teams: ["Argentina", "Germany", "Belgium", "Mexico"] },
+  { name: "Muhammad Talhah", teams: ["Spain", "England", "Belgium", "Croatia"] },
+  { name: "Shahzeb Bari", teams: ["Argentina", "Brazil", "Belgium", "Croatia"] },
+  { name: "Uzair Tariq", teams: ["Morocco", "Colombia", "Ecuador", "Senegal"] },
+  { name: "Faiz Ahmed Khan", teams: ["Spain", "Argentina", "Croatia", "Turkey"] },
+  { name: "Ahmed Sufyan", teams: ["Spain", "Brazil", "Belgium", "Croatia"] },
+];
+
+// Map common name variants to football-data.org names
+const TEAM_NAME_MAP = {
+  "France": "France", "Netherlands": "Netherlands", "Uruguay": "Uruguay",
+  "Norway": "Norway", "Morocco": "Morocco", "Japan": "Japan",
+  "Argentina": "Argentina", "Germany": "Germany", "Mexico": "Mexico",
+  "Colombia": "Colombia", "Portugal": "Portugal", "Spain": "Spain",
+  "Brazil": "Brazil", "Iran": "Iran", "Belgium": "Belgium",
+  "USA": "United States", "England": "England", "Croatia": "Croatia",
+  "Saudi Arabia": "Saudi Arabia", "Denmark": "Denmark", "Turkey": "Türkiye",
+  "Ivory Coast": "Côte d'Ivoire", "Ecuador": "Ecuador", "Senegal": "Senegal",
+};
+
+let teamStats = {}; // { teamName: { played, wins, draws, losses, goalsFor, goalsAgainst, points } }
+let lastFetch = null;
+
+function getTeamKey(apiName) {
+  for (const [k, v] of Object.entries(TEAM_NAME_MAP)) {
+    if (v === apiName || k === apiName) return k;
+  }
+  return apiName;
+}
+
+async function fetchData() {
+  document.getElementById('update-time').textContent = 'Refreshing...';
+  try {
+    const apiUrl = `https://api.football-data.org/v4/competitions/${WC_2026_ID}/matches?status=FINISHED`;
+    const res = await fetch(CORS_PROXY + encodeURIComponent(apiUrl), {
+      headers: { 'X-Auth-Token': API_KEY }
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+    processMatches(data.matches || []);
+    lastFetch = new Date();
+    document.getElementById('update-time').textContent = 'Updated ' + lastFetch.toLocaleTimeString();
+    render();
+  } catch (e) {
+    console.error(e);
+    document.getElementById('update-time').textContent = 'Error – using cached data';
+    // Show error if no data
+    if (Object.keys(teamStats).length === 0) {
+      showError(e.message);
+    }
+  }
+}
+
+function processMatches(matches) {
+  teamStats = {};
+  for (const match of matches) {
+    const home = getTeamKey(match.homeTeam?.name);
+    const away = getTeamKey(match.awayTeam?.name);
+    const hg = match.score?.fullTime?.home ?? 0;
+    const ag = match.score?.fullTime?.away ?? 0;
+
+    if (!teamStats[home]) initTeam(home);
+    if (!teamStats[away]) initTeam(away);
+
+    teamStats[home].played++;
+    teamStats[away].played++;
+    teamStats[home].goalsFor += hg;
+    teamStats[home].goalsAgainst += ag;
+    teamStats[away].goalsFor += ag;
+    teamStats[away].goalsAgainst += hg;
+
+    // Fantasy points
+    // Goals scored +1, goals conceded -1
+    teamStats[home].points += hg * 1 - ag * 1;
+    teamStats[away].points += ag * 1 - hg * 1;
+
+    // Clean sheets
+    if (ag === 0) teamStats[home].points += 2;
+    if (hg === 0) teamStats[away].points += 2;
+
+    // Win/Draw/Loss
+    if (hg > ag) {
+      teamStats[home].wins++; teamStats[home].points += 4;
+      teamStats[away].losses++; teamStats[away].points -= 1;
+    } else if (hg < ag) {
+      teamStats[away].wins++; teamStats[away].points += 4;
+      teamStats[home].losses++; teamStats[home].points -= 1;
+    } else {
+      teamStats[home].draws++; teamStats[home].points += 2;
+      teamStats[away].draws++; teamStats[away].points += 2;
+    }
+  }
+}
+
+function initTeam(name) {
+  teamStats[name] = { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+}
+
+function getTeamPoints(teamName) {
+  return teamStats[teamName] || { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+}
+
+function calcParticipant(p) {
+  let total = 0, wins = 0, losses = 0, goalsFor = 0, goalsAgainst = 0, played = 0;
+  const teamBreakdown = p.teams.map(t => {
+    const s = getTeamPoints(t);
+    total += s.points;
+    wins += s.wins;
+    losses += s.losses;
+    goalsFor += s.goalsFor;
+    goalsAgainst += s.goalsAgainst;
+    played += s.played;
+    return { name: t, ...s };
+  });
+  return { ...p, total, wins, losses, goalsFor, goalsAgainst, played, goalDiff: goalsFor - goalsAgainst, teamBreakdown };
+}
+
+function sortParticipants(list) {
+  return list.sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+    if (a.losses !== b.losses) return a.losses - b.losses;
+    return a.goalsAgainst - b.goalsAgainst;
+  });
+}
+
+function render() {
+  const computed = PARTICIPANTS.map(calcParticipant);
+  const sorted = sortParticipants(computed);
+  renderLeaderboard(sorted);
+  renderCards(sorted);
+}
+
+function renderLeaderboard(sorted) {
+  const container = document.getElementById('leaderboard-container');
+  if (sorted.length === 0) { container.innerHTML = '<div class="no-data">No match data yet. Tournament hasn\'t started!</div>'; return; }
+
+  let html = `<table class="leaderboard">
+    <thead><tr>
+      <th>#</th>
+      <th>Player</th>
+      <th class="right">PTS</th>
+      <th class="center hide-mobile">GD</th>
+      <th class="center hide-mobile">W</th>
+      <th class="center hide-mobile">L</th>
+      <th class="center hide-mobile">GF</th>
+      <th class="center hide-mobile">GA</th>
+    </tr></thead><tbody>`;
+
+  sorted.forEach((p, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+    const gdColor = p.goalDiff > 0 ? 'positive' : p.goalDiff < 0 ? 'negative' : '';
+    const teamTags = p.teams.map(t => `<span class="team-flag-tiny">${t}</span>`).join('');
+    html += `<tr>
+      <td class="rank-cell ${rankClass}">${rank}</td>
+      <td>
+        <div class="player-name">${rank <= 3 ? `<span class="top3-badge badge-${rank}">${['🥇','🥈','🥉'][rank-1]}</span>` : ''}${p.name}</div>
+        <div class="player-teams">${teamTags}</div>
+      </td>
+      <td class="pts-cell">${p.total}</td>
+      <td class="stat-cell hide-mobile ${gdColor}">${p.goalDiff > 0 ? '+' : ''}${p.goalDiff}</td>
+      <td class="stat-cell hide-mobile">${p.wins}</td>
+      <td class="stat-cell hide-mobile">${p.losses}</td>
+      <td class="stat-cell hide-mobile">${p.goalsFor}</td>
+      <td class="stat-cell hide-mobile">${p.goalsAgainst}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderCards(sorted) {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+  sorted.forEach((p, i) => {
+    const rank = i + 1;
+    const gdColor = p.goalDiff > 0 ? 'positive' : p.goalDiff < 0 ? 'negative' : '';
+    const teamsHtml = p.teamBreakdown.map(t => `
+      <div class="card-team">
+        <div class="card-team-name">${t.name}</div>
+        <div class="card-team-pts">${t.points >= 0 ? '+' : ''}${t.points} pts · ${t.wins}W ${t.draws}D ${t.losses}L</div>
+      </div>`).join('');
+
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    card.innerHTML = `
+      <div class="card-header">
+        <div>
+          <div class="card-rank">#${rank} ${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : ''}</div>
+          <div class="card-name">${p.name}</div>
+        </div>
+        <div>
+          <div class="card-pts">${p.total}</div>
+          <div class="card-pts-label">Points</div>
+        </div>
+      </div>
+      <div class="card-teams">${teamsHtml}</div>
+      <div class="card-stats">
+        <div class="card-stat">
+          <div class="card-stat-val">${p.wins}</div>
+          <div class="card-stat-label">Wins</div>
+        </div>
+        <div class="card-stat">
+          <div class="card-stat-val ${gdColor}">${p.goalDiff > 0 ? '+' : ''}${p.goalDiff}</div>
+          <div class="card-stat-label">Goal Diff</div>
+        </div>
+        <div class="card-stat">
+          <div class="card-stat-val">${p.goalsFor}</div>
+          <div class="card-stat-label">Goals For</div>
+        </div>
+        <div class="card-stat">
+          <div class="card-stat-val">${p.losses}</div>
+          <div class="card-stat-label">Losses</div>
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function showError(msg) {
+  ['leaderboard-container', 'cards-container'].forEach(id => {
+    document.getElementById(id).innerHTML = `<div class="error-box">⚠️ Could not load data: ${msg}<br><br>The tournament may not have started yet, or check the API key.</div>`;
+  });
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+}
+
+// Auto refresh every 3 minutes
+fetchData();
+setInterval(fetchData, 3 * 60 * 1000);
+</script>
+</body>
+</html>
