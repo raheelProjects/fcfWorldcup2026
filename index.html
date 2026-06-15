@@ -9,7 +9,7 @@
 
 :root {
   --red: #D0021B;
-  --red-dark: #a82332;
+  --red-dark: #a80116;
   --red-light: #fff0f2;
   --blue: #003DA5;
   --blue-dark: #002d7a;
@@ -446,6 +446,103 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .tb-card ol li { font-size: 13px; color: var(--text); padding: 5px 0; border-bottom: 1px solid var(--border); line-height: 1.5; }
 .tb-card ol li:last-child { border-bottom: none; }
 
+
+/* ── ADMIN ── */
+.admin-lock { text-align:center; padding: 40px 20px; }
+.admin-lock input {
+  padding: 10px 16px; border: 2px solid var(--border);
+  border-radius: 8px; font-size: 14px; font-family:'Inter',sans-serif;
+  outline:none; width: 220px; margin-right: 8px;
+  transition: border-color 0.2s;
+}
+.admin-lock input:focus { border-color: var(--red); }
+.admin-lock p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.admin-panel { display:none; }
+.admin-match-row {
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.admin-match-row.done { opacity: 0.55; }
+.admin-teams {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 180px;
+}
+.admin-teams span { color: var(--muted); font-weight: 400; font-size: 12px; }
+.admin-score-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.admin-score-input input {
+  width: 52px;
+  padding: 7px 8px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  font-family: 'Bebas Neue', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.admin-score-input input:focus { border-color: var(--red); }
+.admin-score-sep { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--muted); }
+.admin-save-btn {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.admin-save-btn:hover { background: var(--red-dark); }
+.admin-save-btn.saved { background: var(--green); }
+.admin-grp-label {
+  background: var(--blue);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  min-width: 50px;
+  text-align: center;
+}
+.admin-current-result {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  color: var(--green);
+  min-width: 48px;
+  text-align: center;
+}
+.admin-filter-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;
+}
+.admin-success-toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--green); color: #fff;
+  padding: 12px 20px; border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  opacity: 0; transition: opacity 0.3s;
+  z-index: 999; pointer-events: none;
+}
+.admin-success-toast.show { opacity: 1; }
+
 /* ── MISC ── */
 .section-title {
   font-family: 'Bebas Neue', sans-serif;
@@ -510,6 +607,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <button class="tab" onclick="switchTab('cards',this)">🃏 Player Cards</button>
   <button class="tab" onclick="switchTab('matches',this)">📅 Matches</button>
   <button class="tab" onclick="switchTab('rules',this)">📋 Rules</button>
+  <button class="tab" onclick="switchTab('admin',this)">🔐 Admin</button>
 </div>
 
 <div class="main">
@@ -561,6 +659,27 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       </ol>
     </div>
   </div>
+
+
+  <!-- ADMIN TAB -->
+  <div id="tab-admin" class="tab-panel">
+    <div class="section-title">🔐 Admin Panel</div>
+    <div id="admin-lock" class="admin-lock">
+      <p>Enter admin password to update match scores</p>
+      <input type="password" id="admin-pass" placeholder="Password..." onkeydown="if(event.key==='Enter')checkPass()">
+      <button class="admin-save-btn" onclick="checkPass()">Unlock</button>
+      <p id="pass-err" style="color:var(--red);margin-top:10px;display:none;">Wrong password</p>
+    </div>
+    <div id="admin-panel" class="admin-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:13px;color:var(--muted);">Click a match to enter result. Changes update the leaderboard instantly.</div>
+        <button onclick="saveToStorage()" style="background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Save All Results</button>
+      </div>
+      <div class="admin-filter-bar" id="admin-filter-bar"></div>
+      <div id="admin-matches-list"></div>
+    </div>
+  </div>
+  <div class="admin-success-toast" id="toast">✅ Score saved!</div>
 
 </div>
 
@@ -635,7 +754,7 @@ const MATCHES = [
   {no:11,home:"Netherlands", away:"Japan",          group:"F", date:"14 Jun", result:"2-2"},
   {no:10,home:"Ivory Coast", away:"Ecuador",        group:"E", date:"14 Jun", result:"1-0"},
   {no:9, home:"Sweden",      away:"Tunisia",        group:"F", date:"14 Jun", result:"5-1"},
-  {no:13,home:"Spain",       away:"Cape Verde",     group:"H", date:"15 Jun", result:""},
+  {no:13,home:"Spain",       away:"Cape Verde",     group:"H", date:"15 Jun", result:"0-0"},
   {no:14,home:"Belgium",     away:"Egypt",          group:"G", date:"15 Jun", result:""},
   {no:15,home:"Saudi Arabia",away:"Uruguay",        group:"H", date:"15 Jun", result:""},
   {no:16,home:"Iran",        away:"New Zealand",    group:"G", date:"15 Jun", result:""},
@@ -882,32 +1001,73 @@ function render(){
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
 }
 
+// Process local MATCHES array (hardcoded results) into teamStats
+function processLocalMatches(){
+  teamStats={};
+  MATCHES.forEach(m=>{
+    if(!m.result) return;
+    const parts=m.result.split('-');
+    if(parts.length!==2) return;
+    const hg=parseInt(parts[0]), ag=parseInt(parts[1]);
+    if(isNaN(hg)||isNaN(ag)) return;
+    const h=m.home, a=m.away;
+    if(!teamStats[h]) teamStats[h]={played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
+    if(!teamStats[a]) teamStats[a]={played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
+    teamStats[h].played++; teamStats[a].played++;
+    teamStats[h].gf+=hg; teamStats[h].ga+=ag;
+    teamStats[a].gf+=ag; teamStats[a].ga+=hg;
+    // goals scored +1 each, conceded -1 each
+    teamStats[h].pts+=(hg-ag);
+    teamStats[a].pts+=(ag-hg);
+    // clean sheets
+    if(ag===0){teamStats[h].cs++;teamStats[h].pts+=2;}
+    if(hg===0){teamStats[a].cs++;teamStats[a].pts+=2;}
+    // result
+    if(hg>ag){teamStats[h].wins++;teamStats[h].pts+=4;teamStats[a].losses++;teamStats[a].pts-=1;}
+    else if(ag>hg){teamStats[a].wins++;teamStats[a].pts+=4;teamStats[h].losses++;teamStats[h].pts-=1;}
+    else{teamStats[h].draws++;teamStats[h].pts+=2;teamStats[a].draws++;teamStats[a].pts+=2;}
+  });
+}
+
 async function fetchData(){
   const dot=document.getElementById('sdot');
   document.getElementById('update-time').textContent='Refreshing...';
+
+  // STEP 1: Always process local hardcoded results first
+  processLocalMatches();
+  render();
+
+  // STEP 2: Try API for any newer results
   const base=`https://api.football-data.org/v4/competitions/${WC_ID}/matches`;
-  let ok=false;
   for(const pf of PROXIES){
     try{
       const r=await fetch(pf(base),{headers:{'X-Auth-Token':API_KEY}});
       if(!r.ok)continue;
       const d=await r.json();
-      processMatches(d.matches||[]);
-      dot.className='status-dot';
-      document.getElementById('update-time').textContent='Updated '+new Date().toLocaleTimeString();
-      render();
-      ok=true;
-      break;
+      const apiMatches=(d.matches||[]).filter(m=>m.status==='FINISHED');
+      if(apiMatches.length>0){
+        // API returned data — use it (overrides local)
+        processMatches(apiMatches);
+        // Also update MATCHES array with any new results from API
+        apiMatches.forEach(am=>{
+          const h=norm(am.homeTeam?.name||''), a=norm(am.awayTeam?.name||'');
+          const hg=am.score?.fullTime?.home??0, ag=am.score?.fullTime?.away??0;
+          const local=MATCHES.find(m=>m.home===h&&m.away===a);
+          if(local) local.result=`${hg}-${ag}`;
+        });
+        dot.className='status-dot';
+        document.getElementById('update-time').textContent='Live · '+new Date().toLocaleTimeString();
+        render();
+      } else {
+        dot.className='status-dot';
+        document.getElementById('update-time').textContent='Local data · '+new Date().toLocaleTimeString();
+      }
+      return;
     }catch(e){continue;}
   }
-  if(!ok){
-    dot.className='status-dot err';
-    document.getElementById('update-time').textContent='API error';
-    // Still render with zeroes so UI looks good
-    render();
-    const lbEl=document.getElementById('leaderboard-container');
-    lbEl.innerHTML='<div class="error-banner">⚠️ Could not reach live API. Scores show 0 — upload this file to <strong>Netlify</strong> for live data.<br>All match schedule data is still available in the Matches tab.</div>'+lbEl.innerHTML;
-  }
+  // API failed — local data already rendered
+  dot.className='status-dot err';
+  document.getElementById('update-time').textContent='Offline · Local data only';
 }
 
 function switchTab(name,el){
@@ -916,7 +1076,118 @@ function switchTab(name,el){
   document.getElementById('tab-'+name).classList.add('active');
   el.classList.add('active');
   if(name==='matches')renderMatches();
+  if(name==='admin'&&adminUnlocked)renderAdminMatches();
 }
+
+
+const ADMIN_PASS = 'fcf2026';
+let adminUnlocked = false;
+let adminGrpFilter = 'All';
+
+function checkPass(){
+  const v = document.getElementById('admin-pass').value;
+  if(v === ADMIN_PASS){
+    adminUnlocked = true;
+    document.getElementById('admin-lock').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    renderAdminMatches();
+    loadFromStorage();
+  } else {
+    document.getElementById('pass-err').style.display = 'block';
+  }
+}
+
+function renderAdminMatches(){
+  // Filter bar
+  const fb = document.getElementById('admin-filter-bar');
+  const groups = ['All','A','B','C','D','E','F','G','H','I','J','K','L'];
+  fb.innerHTML = groups.map(g=>
+    `<button class="mf-btn${g===adminGrpFilter?' on':''}" onclick="setAdminGrp('${g}',this)">${g==='All'?'All Groups':'Grp '+g}</button>`
+  ).join('');
+
+  const el = document.getElementById('admin-matches-list');
+  const sorted = [...MATCHES].sort((a,b)=>a.no-b.no);
+  const filtered = adminGrpFilter==='All' ? sorted : sorted.filter(m=>m.group===adminGrpFilter);
+
+  el.innerHTML = filtered.map(m => {
+    const hasResult = m.result !== '';
+    const [hg,ag] = hasResult ? m.result.split('-') : ['',''];
+    return `
+    <div class="admin-match-row${hasResult?' done':''}" id="arow-${m.no}">
+      <div class="admin-grp-label">GRP ${m.group}</div>
+      <div class="admin-teams">${m.home} <span>vs</span> ${m.away} <span style="margin-left:6px;color:#cbd5e1">#${m.no} · ${m.date}</span></div>
+      <div class="admin-current-result" id="acur-${m.no}">${hasResult?m.result:'—'}</div>
+      <div class="admin-score-input">
+        <input type="number" min="0" max="20" id="ah-${m.no}" value="${hg}" placeholder="0">
+        <span class="admin-score-sep">-</span>
+        <input type="number" min="0" max="20" id="aa-${m.no}" value="${ag}" placeholder="0">
+      </div>
+      <button class="admin-save-btn${hasResult?' saved':''}" id="abtn-${m.no}" onclick="saveScore(${m.no})">
+        ${hasResult?'✓ Saved':'Save'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function setAdminGrp(g, el){
+  adminGrpFilter = g;
+  document.querySelectorAll('#admin-filter-bar .mf-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderAdminMatches();
+}
+
+function saveScore(no){
+  const hInput = document.getElementById('ah-'+no);
+  const aInput = document.getElementById('aa-'+no);
+  const hg = hInput.value.trim();
+  const ag = aInput.value.trim();
+  if(hg===''||ag==='') return;
+  const result = `${hg}-${ag}`;
+  const match = MATCHES.find(m=>m.no===no);
+  if(match){
+    match.result = result;
+    document.getElementById('acur-'+no).textContent = result;
+    const btn = document.getElementById('abtn-'+no);
+    btn.textContent = '✓ Saved';
+    btn.className = 'admin-save-btn saved';
+    document.getElementById('arow-'+no).className = 'admin-match-row done';
+    // Recalculate everything
+    processLocalMatches();
+    render();
+    showToast(`${match.home} ${result} ${match.away}`);
+    saveToStorage();
+  }
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = '✅ ' + msg + ' saved!';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+function saveToStorage(){
+  const results = {};
+  MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
+  try{ localStorage.setItem('fcf2026_results', JSON.stringify(results)); } catch(e){}
+}
+
+function loadFromStorage(){
+  try{
+    const saved = localStorage.getItem('fcf2026_results');
+    if(!saved) return;
+    const results = JSON.parse(saved);
+    let updated = false;
+    Object.entries(results).forEach(([no,result])=>{
+      const match = MATCHES.find(m=>m.no===parseInt(no));
+      if(match && !match.result){ match.result=result; updated=true; }
+    });
+    if(updated){ processLocalMatches(); render(); }
+  } catch(e){}
+}
+
+// Load saved results on startup
+loadFromStorage();
 
 fetchData();
 setInterval(fetchData,3*60*1000);
