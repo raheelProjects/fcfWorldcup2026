@@ -638,6 +638,90 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   text-align: center;
   line-height: 1.7;
 }
+
+/* ── FORM GUIDE ── */
+.form-dot { display:inline-block;width:20px;height:20px;border-radius:50%;font-size:9px;font-weight:700;line-height:20px;text-align:center;color:#fff;margin-right:2px; }
+.form-W { background:#15803d; }
+.form-D { background:#b45309; }
+.form-L { background:#dc2626; }
+.form-wrap { display:flex;align-items:center;gap:2px;margin-top:4px; }
+
+/* ── HEAD TO HEAD ── */
+.h2h-modal { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center; }
+.h2h-modal.open { display:flex; }
+.h2h-box { background:#fff;border-radius:16px;padding:28px;max-width:560px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;max-height:85vh;overflow-y:auto; }
+.h2h-close { position:absolute;top:14px;right:16px;font-size:22px;cursor:pointer;color:var(--muted);background:none;border:none;line-height:1; }
+.h2h-title { font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--blue);margin-bottom:16px;text-align:center; }
+.h2h-players { display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:20px; }
+.h2h-select { padding:8px 10px;border:2px solid var(--border);border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;outline:none;width:100%;background:#fff; }
+.h2h-select:focus { border-color:var(--blue); }
+.h2h-vs { font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--red);text-align:center; }
+.h2h-result { display:none; }
+.h2h-result.show { display:block; }
+.h2h-stat-row { display:flex;align-items:center;margin-bottom:10px;gap:8px; }
+.h2h-bar-wrap { flex:1;height:8px;border-radius:4px;background:var(--bg);overflow:hidden; }
+.h2h-bar { height:100%;border-radius:4px;transition:width 0.6s; }
+.h2h-val { font-family:'JetBrains Mono',monospace;font-size:12px;min-width:28px;text-align:center;font-weight:700; }
+.h2h-label { font-size:11px;color:var(--muted);text-align:center;min-width:60px; }
+.h2h-winner-banner { background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;border-radius:10px;padding:14px;text-align:center;margin-top:16px; }
+.h2h-winner-banner .wname { font-size:18px;font-weight:700; }
+.h2h-winner-banner .wpts { font-family:'Bebas Neue',sans-serif;font-size:36px;color:#FFD700; }
+
+/* ── PODIUM ── */
+.podium-wrap { display:flex;align-items:flex-end;justify-content:center;gap:12px;margin:20px 0 30px;padding:0 20px; }
+.podium-col { display:flex;flex-direction:column;align-items:center;flex:1;max-width:180px; }
+.podium-avatar { width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;margin-bottom:8px;box-shadow:0 4px 12px rgba(0,0,0,0.2); }
+.podium-name { font-size:13px;font-weight:700;text-align:center;margin-bottom:4px;color:var(--text); }
+.podium-pts { font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--red);margin-bottom:6px; }
+.podium-block { width:100%;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center; }
+.podium-rank { font-family:'Bebas Neue',sans-serif;font-size:32px;color:#fff; }
+.podium-teams { font-size:10px;color:var(--muted);text-align:center;max-width:120px;line-height:1.4; }
+
+/* ── MOVER ── */
+.mover-card { background:var(--white);border-radius:12px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px;display:flex;align-items:center;gap:16px; }
+.mover-arrow { font-size:32px;min-width:40px;text-align:center; }
+.mover-info { flex:1; }
+.mover-name { font-size:15px;font-weight:700;color:var(--text); }
+.mover-detail { font-size:12px;color:var(--muted);margin-top:3px; }
+.mover-pts { font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--red); }
+
+/* ── GOAL FEED ── */
+.goal-feed { background:var(--white);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px; }
+.goal-feed-header { background:var(--blue);color:#fff;padding:12px 16px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px; }
+.goal-feed-live { width:8px;height:8px;border-radius:50%;background:#4ade80;animation:pulse 1s infinite; }
+.goal-item { padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px; }
+.goal-item:last-child { border-bottom:none; }
+.goal-icon { font-size:18px;min-width:28px;text-align:center; }
+.goal-text { flex:1;font-size:13px;color:var(--text); }
+.goal-text strong { color:var(--red); }
+.goal-pts { font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--green); }
+.goal-beneficiary { font-size:11px;color:var(--muted);margin-top:2px; }
+
+/* ── SHARE CARD MODAL ── */
+.share-modal { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;align-items:center;justify-content:center; }
+.share-modal.open { display:flex; }
+.share-box { background:#fff;border-radius:16px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);position:relative; }
+.share-close { position:absolute;top:12px;right:14px;font-size:22px;cursor:pointer;color:var(--muted);background:none;border:none; }
+.share-card-preview { background:linear-gradient(135deg,var(--blue) 0%,var(--blue-dark) 100%);border-radius:12px;padding:20px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden; }
+.share-card-preview::before { content:'';position:absolute;top:-20px;right:-20px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.05); }
+.share-card-rank { font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;opacity:0.7;margin-bottom:4px; }
+.share-card-name { font-size:20px;font-weight:700;margin-bottom:2px; }
+.share-card-pts-row { display:flex;align-items:baseline;gap:6px;margin:10px 0; }
+.share-card-pts { font-family:'Bebas Neue',sans-serif;font-size:48px;color:#FFD700;line-height:1; }
+.share-card-pts-lbl { font-size:12px;opacity:0.7; }
+.share-card-teams { display:flex;flex-wrap:wrap;gap:6px;margin-top:10px; }
+.share-card-team { background:rgba(255,255,255,0.15);border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600; }
+.share-card-stats { display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.2); }
+.share-stat { text-align:center; }
+.share-stat-v { font-family:'Bebas Neue',sans-serif;font-size:20px; }
+.share-stat-l { font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px; }
+.share-dl-btn { width:100%;padding:12px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.2s; }
+.share-dl-btn:hover { background:var(--red-dark); }
+
+/* ── STATS TAB LAYOUT ── */
+.stats-two-col { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
+@media(max-width:640px){ .stats-two-col { grid-template-columns:1fr; } .podium-col { max-width:120px; } }
+
 @media (max-width: 640px) {
   .hide-sm { display: none; }
   .main { padding: 12px; }
@@ -678,6 +762,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <button class="tab" onclick="switchTab('cards',this)">🃏 Player Cards</button>
   <button class="tab" onclick="switchTab('matches',this)">📅 Matches</button>
   <button class="tab" onclick="switchTab('rules',this)">📋 Rules</button>
+  <button class="tab" onclick="switchTab('stats',this)">📈 Stats</button>
+  <button class="tab" onclick="switchTab('h2h',this)">⚔️ H2H</button>
   <button class="tab" onclick="switchTab('admin',this)">🔐 Admin</button>
 </div>
 
@@ -740,6 +826,36 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   </div>
 
 
+
+  <!-- STATS TAB -->
+  <div id="tab-stats" class="tab-panel">
+    <div class="section-title">🏆 Prize Podium</div>
+    <div id="podium-container"></div>
+    <div class="stats-two-col">
+      <div>
+        <div class="section-title">🚀 Biggest Mover</div>
+        <div id="mover-container"></div>
+      </div>
+      <div>
+        <div class="section-title">⚽ Goal Feed</div>
+        <div id="goal-feed-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- H2H TAB -->
+  <div id="tab-h2h" class="tab-panel">
+    <div class="section-title">⚔️ Head to Head</div>
+    <div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);padding:24px;">
+      <div class="h2h-players">
+        <select class="h2h-select" id="h2h-p1" onchange="renderH2H()"><option value="">Select Player 1</option></select>
+        <div class="h2h-vs">VS</div>
+        <select class="h2h-select" id="h2h-p2" onchange="renderH2H()"><option value="">Select Player 2</option></select>
+      </div>
+      <div id="h2h-result" class="h2h-result"></div>
+    </div>
+  </div>
+
   <!-- ADMIN TAB -->
   <div id="tab-admin" class="tab-panel">
     <div class="section-title">🔐 Admin Panel</div>
@@ -758,7 +874,15 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       <div id="admin-matches-list"></div>
     </div>
   </div>
-  <div class="admin-success-toast" id="toast">✅ Score saved!</div>
+  <!-- SHARE MODAL -->
+<div class="share-modal" id="share-modal">
+  <div class="share-box">
+    <button class="share-close" onclick="closeShareModal()">✕</button>
+    <div id="share-card-inner"></div>
+    <button class="share-dl-btn" onclick="downloadShareCard()">📥 Download My Card</button>
+  </div>
+</div>
+<div class="admin-success-toast" id="toast">✅ Score saved!</div>
 
 </div>
 
@@ -1002,13 +1126,14 @@ function renderCards(s){
       <div class="pc-team">
         <div class="pc-team-pts">${t.pts>=0?'+':''}${t.pts}</div>
         <div class="pc-team-name">${t.name}</div>
-        <div class="pc-team-stats">${t.wins}W ${t.draws}D ${t.losses}L · ${t.gf}GF ${t.ga}GA</div>
+        <div class="pc-team-stats">${t.wins}W ${t.draws}D ${t.losses}L · ${t.gf}GF ${t.ga}GA</div><div style="margin-top:4px">${formHTML(t.name)}</div>
       </div>`).join('');
     const d=document.createElement('div');
     d.className='player-card';
     d.dataset.name=p.name.toLowerCase();
     d.innerHTML=`
-      <div class="pc-header">
+      <button onclick="openShareCard(${i},event)" style="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700;z-index:2;">📤 Share</button>
+      <div class="pc-header" style="position:relative;">
         <div class="pc-rank-badge">#${r} ${medal}</div>
         <div class="pc-pts-block">
           <div class="pc-pts">${p.pts}</div>
@@ -1080,6 +1205,10 @@ function render(){
   renderStatsBar(allSorted);
   renderLB(allSorted);
   renderCards(allSorted);
+  renderGoalFeed();
+  renderPodium(allSorted);
+  renderMover(allSorted);
+  populateH2H();
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
 }
 
@@ -1262,8 +1391,280 @@ function switchTab(name,el){
   el.classList.add('active');
   if(name==='matches')renderMatches();
   if(name==='admin'&&adminUnlocked)renderAdminMatches();
+  if(name==='stats'){renderPodium(allSorted);renderMover(allSorted);renderGoalFeed();}
+  if(name==='h2h')populateH2H();
 }
 
+
+
+// ── FORM GUIDE ──
+function getFormGuide(teamName) {
+  const results = [];
+  const playedMatches = MATCHES.filter(m => m.result && (m.home === teamName || m.away === teamName));
+  playedMatches.slice(-5).forEach(m => {
+    const [hg, ag] = m.result.split('-').map(Number);
+    const isHome = m.home === teamName;
+    if (hg === ag) results.push('D');
+    else if ((isHome && hg > ag) || (!isHome && ag > hg)) results.push('W');
+    else results.push('L');
+  });
+  return results;
+}
+
+function formHTML(teamName) {
+  const form = getFormGuide(teamName);
+  if (!form.length) return '<span style="font-size:10px;color:var(--muted)">No games yet</span>';
+  return '<div class="form-wrap">' + form.map(r => `<span class="form-dot form-${r}">${r}</span>`).join('') + '</div>';
+}
+
+// ── PODIUM ──
+function renderPodium(s) {
+  const el = document.getElementById('podium-container');
+  if (!el) return;
+  const top3 = s.slice(0, 3);
+  const order = [1, 0, 2]; // 2nd, 1st, 3rd display order
+  const heights = [120, 160, 90];
+  const colors = ['#94a3b8', '#F59E0B', '#cd7c3c'];
+  const bgColors = ['#e2e8f0', '#fef3c7', '#fde8d0'];
+  const labels = ['🥈 2nd', '🥇 1st', '🥉 3rd'];
+  const initials = p => p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  el.innerHTML = `
+    <div class="podium-wrap">
+      ${order.map((idx, di) => {
+        const p = top3[idx];
+        if (!p) return '';
+        return `
+        <div class="podium-col">
+          <div class="podium-avatar" style="background:${colors[idx]};font-size:${idx===0?'20px':'16px'}">${initials(p)}</div>
+          <div class="podium-name">${p.name.split(' ')[0]}</div>
+          <div class="podium-pts">${p.pts} pts</div>
+          <div class="podium-teams">${p.teams.join(' · ')}</div>
+          <div style="margin-top:8px"></div>
+          <div class="podium-block" style="height:${heights[di]}px;background:${bgColors[idx]};border:2px solid ${colors[idx]};">
+            <span class="podium-rank" style="color:${colors[idx]}">${labels[idx]}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── BIGGEST MOVER ──
+let prevRanks = {};
+function renderMover(s) {
+  const el = document.getElementById('mover-container');
+  if (!el) return;
+
+  // Store current ranks
+  const currRanks = {};
+  s.forEach((p, i) => currRanks[p.name] = i + 1);
+
+  let html = '';
+  if (Object.keys(prevRanks).length === 0) {
+    html = `<div class="mover-card">
+      <div class="mover-arrow">📊</div>
+      <div class="mover-info">
+        <div class="mover-name">Tracking Started</div>
+        <div class="mover-detail">Rank movements will show after next refresh</div>
+      </div>
+    </div>`;
+  } else {
+    // Find biggest movers
+    const moves = s.map(p => ({
+      name: p.name, pts: p.pts,
+      curr: currRanks[p.name] || 0,
+      prev: prevRanks[p.name] || currRanks[p.name] || 0,
+      move: (prevRanks[p.name] || currRanks[p.name]) - currRanks[p.name]
+    })).sort((a, b) => Math.abs(b.move) - Math.abs(a.move));
+
+    const top = moves[0];
+    const bottom = moves[moves.length - 1];
+
+    [top, bottom].forEach(m => {
+      if (!m || m.move === 0) return;
+      const up = m.move > 0;
+      html += `<div class="mover-card" style="border-left:4px solid ${up ? '#15803d' : '#dc2626'}">
+        <div class="mover-arrow">${up ? '⬆️' : '⬇️'}</div>
+        <div class="mover-info">
+          <div class="mover-name">${m.name}</div>
+          <div class="mover-detail">${up ? 'Rose' : 'Dropped'} ${Math.abs(m.move)} place${Math.abs(m.move)>1?'s':''} · Now #${m.curr}</div>
+        </div>
+        <div class="mover-pts">${m.pts}</div>
+      </div>`;
+    });
+    if (!html) html = `<div class="mover-card"><div class="mover-arrow">😐</div><div class="mover-info"><div class="mover-name">No movement yet</div><div class="mover-detail">Refresh after more matches</div></div></div>`;
+  }
+
+  prevRanks = {...currRanks};
+  el.innerHTML = html;
+}
+
+// ── GOAL FEED ──
+function renderGoalFeed() {
+  const el = document.getElementById('goal-feed-container');
+  if (!el) return;
+
+  const events = [];
+  MATCHES.filter(m => m.result).forEach(m => {
+    const [hg, ag] = m.result.split('-').map(Number);
+    // Home goals
+    for (let i = 0; i < hg; i++) {
+      const beneficiaries = PARTICIPANTS.filter(p => p.teams.includes(m.home)).map(p=>p.name.split(' ')[0]);
+      events.push({ icon:'⚽', team: m.home, vs: m.away, type:'goal', pts:'+1', benefit: beneficiaries, home:true, match: m });
+    }
+    // Away goals
+    for (let i = 0; i < ag; i++) {
+      const beneficiaries = PARTICIPANTS.filter(p => p.teams.includes(m.away)).map(p=>p.name.split(' ')[0]);
+      events.push({ icon:'⚽', team: m.away, vs: m.home, type:'goal', pts:'+1', benefit: beneficiaries, home:false, match: m });
+    }
+    // Clean sheets
+    if (ag === 0) {
+      const ben = PARTICIPANTS.filter(p=>p.teams.includes(m.home)).map(p=>p.name.split(' ')[0]);
+      events.push({ icon:'🧤', team: m.home, vs: m.away, type:'clean sheet', pts:'+2', benefit: ben, match: m });
+    }
+    if (hg === 0) {
+      const ben = PARTICIPANTS.filter(p=>p.teams.includes(m.away)).map(p=>p.name.split(' ')[0]);
+      events.push({ icon:'🧤', team: m.away, vs: m.home, type:'clean sheet', pts:'+2', benefit: ben, match: m });
+    }
+  });
+
+  const recent = events.slice(-20).reverse();
+
+  el.innerHTML = `<div class="goal-feed">
+    <div class="goal-feed-header"><span class="goal-feed-live"></span> Recent Events</div>
+    ${recent.length === 0
+      ? '<div class="goal-item"><div class="goal-text" style="color:var(--muted)">No events yet</div></div>'
+      : recent.map(e => `
+      <div class="goal-item">
+        <div class="goal-icon">${e.icon}</div>
+        <div style="flex:1">
+          <div class="goal-text"><strong>${e.team}</strong> ${e.type} vs ${e.vs}</div>
+          <div class="goal-beneficiary">Benefits: ${e.benefit.slice(0,3).join(', ')}${e.benefit.length>3?' +'+( e.benefit.length-3)+' more':''}</div>
+        </div>
+        <div class="goal-pts">${e.pts}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── HEAD TO HEAD ──
+function populateH2H() {
+  ['h2h-p1','h2h-p2'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Select Player...</option>' +
+      allSorted.map((p,i) => `<option value="${i}" ${cur==i?'selected':''}>${p.name} (#${i+1} · ${p.pts}pts)</option>`).join('');
+  });
+}
+
+function renderH2H() {
+  const i1 = document.getElementById('h2h-p1')?.value;
+  const i2 = document.getElementById('h2h-p2')?.value;
+  const el = document.getElementById('h2h-result');
+  if (!el || i1 === '' || i2 === '' || i1 === i2) { if(el) el.className='h2h-result'; return; }
+
+  const p1 = allSorted[parseInt(i1)];
+  const p2 = allSorted[parseInt(i2)];
+  if (!p1 || !p2) return;
+
+  const stats = [
+    { label:'Points', v1:p1.pts, v2:p2.pts, color:'#D0021B' },
+    { label:'Wins', v1:p1.w, v2:p2.w, color:'#15803d' },
+    { label:'Draws', v1:p1.d, v2:p2.d, color:'#b45309' },
+    { label:'Goal Diff', v1:p1.gd, v2:p2.gd, color:'#003DA5' },
+    { label:'Goals For', v1:p1.gf, v2:p2.gf, color:'#7c3aed' },
+    { label:'Clean Sh.', v1:p1.cs, v2:p2.cs, color:'#0891b2' },
+  ];
+
+  const winner = p1.pts > p2.pts ? p1 : p2.pts > p1.pts ? p2 : null;
+
+  el.className = 'h2h-result show';
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;margin-bottom:16px;text-align:center;">
+      <div style="font-weight:700;font-size:15px;color:var(--blue)">${p1.name}</div>
+      <div style="font-size:11px;color:var(--muted);padding-top:4px">vs</div>
+      <div style="font-weight:700;font-size:15px;color:var(--red)">${p2.name}</div>
+    </div>
+    ${stats.map(s => {
+      const total = Math.max(Math.abs(s.v1) + Math.abs(s.v2), 1);
+      const pct1 = Math.round((Math.max(s.v1,0)/Math.max(s.v1+s.v2,1))*100);
+      const pct2 = 100-pct1;
+      return `<div class="h2h-stat-row">
+        <div class="h2h-val" style="color:var(--blue)">${s.v1}</div>
+        <div style="flex:1">
+          <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--bg);">
+            <div style="width:${pct1}%;background:var(--blue);transition:width 0.6s;"></div>
+            <div style="width:${pct2}%;background:var(--red);transition:width 0.6s;"></div>
+          </div>
+          <div style="text-align:center;font-size:10px;color:var(--muted);margin-top:2px">${s.label}</div>
+        </div>
+        <div class="h2h-val" style="color:var(--red)">${s.v2}</div>
+      </div>`;
+    }).join('')}
+    ${winner
+      ? `<div class="h2h-winner-banner"><div style="font-size:11px;opacity:0.8;letter-spacing:1px;margin-bottom:4px">CURRENTLY LEADING</div><div class="wname">🏆 ${winner.name}</div><div class="wpts">${winner.pts} PTS</div></div>`
+      : `<div class="h2h-winner-banner"><div class="wname">🤝 It's a Tie!</div></div>`}
+    <div style="margin-top:14px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">TEAM COMPARISON</div>
+      ${[p1,p2].map((p,pi)=>`
+        <div style="margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:600;color:${pi===0?'var(--blue)':'var(--red)'};margin-bottom:4px;">${p.name}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${p.teams.map(t=>`<span style="background:${pi===0?'var(--blue-light)':'var(--red-light)'};color:${pi===0?'var(--blue)':'var(--red)'};border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600;">${t}</span>`).join('')}
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+// ── SHARE CARD ──
+let sharePlayer = null;
+function openShareCard(idx, e) {
+  e.stopPropagation();
+  sharePlayer = allSorted[idx];
+  if (!sharePlayer) return;
+  const r = idx + 1;
+  const medal = r===1?'🥇':r===2?'🥈':r===3?'🥉':'';
+  const gdc = sharePlayer.gd > 0 ? '#4ade80' : sharePlayer.gd < 0 ? '#f87171' : '#fff';
+
+  document.getElementById('share-card-inner').innerHTML = `
+    <div id="share-card-snap" class="share-card-preview">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <img src="${LOGO_SRC}" style="height:36px;width:auto;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.3))">
+        <div>
+          <div style="font-size:10px;opacity:0.6;letter-spacing:2px">FCF FIFA 2026</div>
+          <div style="font-size:11px;font-weight:700;opacity:0.8">Fantasy League</div>
+        </div>
+      </div>
+      <div class="share-card-rank">${medal} RANK #${r} OF ${allSorted.length}</div>
+      <div class="share-card-name">${sharePlayer.name}</div>
+      <div class="share-card-pts-row">
+        <div class="share-card-pts">${sharePlayer.pts}</div>
+        <div class="share-card-pts-lbl">POINTS</div>
+      </div>
+      <div class="share-card-teams">${sharePlayer.teams.map(t=>`<span class="share-card-team">${t}</span>`).join('')}</div>
+      <div class="share-card-stats">
+        <div class="share-stat"><div class="share-stat-v">${sharePlayer.w}</div><div class="share-stat-l">Wins</div></div>
+        <div class="share-stat"><div class="share-stat-v">${sharePlayer.d}</div><div class="share-stat-l">Draws</div></div>
+        <div class="share-stat"><div class="share-stat-v" style="color:${gdc}">${sharePlayer.gd>0?'+':''}${sharePlayer.gd}</div><div class="share-stat-l">GD</div></div>
+        <div class="share-stat"><div class="share-stat-v">${sharePlayer.cs}</div><div class="share-stat-l">CS</div></div>
+      </div>
+    </div>`;
+  document.getElementById('share-modal').classList.add('open');
+}
+
+function closeShareModal() { document.getElementById('share-modal').classList.remove('open'); }
+
+async function downloadShareCard() {
+  const el = document.getElementById('share-card-snap');
+  const canvas = await html2canvas(el, { scale:3, backgroundColor:null, useCORS:true });
+  const a = document.createElement('a');
+  a.download = `FCF-${sharePlayer?.name.replace(/ /g,'-')}-Card.png`;
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+
+// Close modals on backdrop click
+document.getElementById('share-modal')?.addEventListener('click', function(e){ if(e.target===this) closeShareModal(); });
 
 const ADMIN_PASS = 'fcf2026';
 let adminUnlocked = false;
