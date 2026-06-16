@@ -1422,27 +1422,30 @@ function renderPodium(s) {
   const el = document.getElementById('podium-container');
   if (!el) return;
   const top3 = s.slice(0, 3);
-  const order = [1, 0, 2]; // 2nd, 1st, 3rd display order
-  const heights = [120, 160, 90];
-  const colors = ['#94a3b8', '#F59E0B', '#cd7c3c'];
-  const bgColors = ['#e2e8f0', '#fef3c7', '#fde8d0'];
-  const labels = ['🥈 2nd', '🥇 1st', '🥉 3rd'];
+  if (!top3.length) return;
   const initials = p => p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  // Display order: Left=2nd, Center=1st, Right=3rd
+  const slots = [
+    { player: top3[1], color:'#94a3b8', bg:'#e2e8f0', height:140, label:'🥈 2ND', avatarSize:'18px' },
+    { player: top3[0], color:'#F59E0B', bg:'#fef3c7', height:200, label:'🥇 1ST', avatarSize:'22px' },
+    { player: top3[2], color:'#cd7c3c', bg:'#fde8d0', height:100, label:'🥉 3RD', avatarSize:'16px' },
+  ];
 
   el.innerHTML = `
     <div class="podium-wrap">
-      ${order.map((idx, di) => {
-        const p = top3[idx];
+      ${slots.map(slot => {
+        const p = slot.player;
         if (!p) return '';
         return `
         <div class="podium-col">
-          <div class="podium-avatar" style="background:${colors[idx]};font-size:${idx===0?'20px':'16px'}">${initials(p)}</div>
+          <div class="podium-avatar" style="background:${slot.color};font-size:${slot.avatarSize}">${initials(p)}</div>
           <div class="podium-name">${p.name.split(' ')[0]}</div>
           <div class="podium-pts">${p.pts} pts</div>
           <div class="podium-teams">${p.teams.join(' · ')}</div>
           <div style="margin-top:8px"></div>
-          <div class="podium-block" style="height:${heights[di]}px;background:${bgColors[idx]};border:2px solid ${colors[idx]};">
-            <span class="podium-rank" style="color:${colors[idx]}">${labels[idx]}</span>
+          <div class="podium-block" style="height:${slot.height}px;background:${slot.bg};border:2px solid ${slot.color};">
+            <span class="podium-rank" style="color:${slot.color}">${slot.label}</span>
           </div>
         </div>`;
       }).join('')}
