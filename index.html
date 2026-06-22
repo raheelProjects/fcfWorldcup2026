@@ -1152,32 +1152,73 @@ function saveScore(no){
     btn.textContent='✓ Saved'; btn.className='admin-save-btn saved';
     document.getElementById('arow-'+no).className='admin-match-row done';
     processLocalMatches(); render();
-    showToast(`${match.home} ${result} ${match.away}`);
-    saveToStorage();
+    saveToStorage(); // async - saves to cloud + localStorage
   }
 }
 
 function showToast(msg){
   const t=document.getElementById('toast');
-  t.textContent='✅ '+msg+' saved!';
+  t.textContent=msg.startsWith('✅')||msg.startsWith('Saved')?msg:'✅ '+msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
+  setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-function saveToStorage(){
+// ── CLOUD SYNC via JSONBin ──
+const JSONBIN_BIN_ID = '6a391fe2da38895dfeeb0f01';
+const JSONBIN_KEY    = '$2a$10$TGVkJZoxvWFGoP1IobUQEeDWSfmIP5aCM1MfBIbrJlA6yKd3Ud8eS';
+const JSONBIN_URL    = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+
+async function saveToStorage(){
+  // Always save to localStorage as immediate backup
   const results={};
   MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
   try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
+
+  // Push to JSONBin cloud so all members sync
+  try{
+    await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_KEY,
+        'X-Bin-Versioning': 'false'
+      },
+      body: JSON.stringify({results})
+    });
+    showToast('Saved & synced to cloud ☁️');
+  }catch(e){
+    showToast('Saved locally (cloud unreachable)');
+  }
 }
 
-function loadFromStorage(){
+async function loadFromStorage(){
+  // Try cloud first (all members get same data)
+  try{
+    const r = await fetch(JSONBIN_URL, {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    if(r.ok){
+      const data = await r.json();
+      const results = data.record?.results || {};
+      if(Object.keys(results).length > 0){
+        Object.entries(results).forEach(([no,result])=>{
+          const match=MATCHES.find(m=>m.no===parseInt(no));
+          if(match&&result) match.result=result;
+        });
+        // Also update localStorage as cache
+        try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
+        return; // Cloud loaded successfully
+      }
+    }
+  }catch(e){}
+
+  // Fallback to localStorage if cloud fails
   try{
     const saved=localStorage.getItem('fcf2026_results');
     if(!saved)return;
     const results=JSON.parse(saved);
     Object.entries(results).forEach(([no,result])=>{
       const match=MATCHES.find(m=>m.no===parseInt(no));
-      // Only update if localStorage has a result and MATCHES doesn't, or they differ
       if(match&&result) match.result=result;
     });
   }catch(e){}
@@ -1186,16 +1227,31 @@ function loadFromStorage(){
 // Init
 document.querySelectorAll('#header-logo-img,#hero-logo-img').forEach(img=>img.src=LOGO_SRC);
 
-// Load storage, process local data, render immediately (no waiting for API)
-loadFromStorage();
+// Render instantly with hardcoded data first (no waiting)
 processLocalMatches();
 render();
 document.getElementById('sdot').className='status-dot';
-document.getElementById('update-time').textContent='Loaded · '+new Date().toLocaleTimeString();
+document.getElementById('update-time').textContent='Loading cloud data...';
 
-// Then try API in background
-setTimeout(fetchData, 100);
-setInterval(fetchData, 3*60*1000);
+// Then load cloud data and re-render
+(async () => {
+  await loadFromStorage();   // fetch from JSONBin cloud
+  processLocalMatches();     // reprocess with cloud results merged in
+  render();                  // re-render with updated data
+  document.getElementById('update-time').textContent='Synced · '+new Date().toLocaleTimeString();
+
+  // Then try football API in background
+  setTimeout(fetchData, 200);
+  setInterval(fetchData, 3*60*1000);
+
+  // Re-sync from cloud every 60 seconds so all members stay in sync
+  setInterval(async ()=>{
+    await loadFromStorage();
+    processLocalMatches();
+    render();
+    document.getElementById('update-time').textContent='Synced · '+new Date().toLocaleTimeString();
+  }, 60*1000);
+})();
 </script>
 </body>
 </html>
