@@ -484,19 +484,19 @@ const NM = {
 
 // ── HARDCODED MATCH RESULTS (updated immediately, no API needed) ──
 const MATCHES = [
-  {no:1,  home:"Mexico",       away:"South Africa",  group:"A", date:"11 Jun", result:"2-0"},
-  {no:3,  home:"South Korea",  away:"Czechia",        group:"A", date:"11 Jun", result:"2-1"},
-  {no:2,  home:"Canada",       away:"Bosnia & Herz.", group:"B", date:"12 Jun", result:"1-1"},
-  {no:4,  home:"USA",          away:"Paraguay",       group:"D", date:"12 Jun", result:"4-1"},
-  {no:8,  home:"Qatar",        away:"Switzerland",    group:"B", date:"13 Jun", result:"1-1"},
-  {no:6,  home:"Brazil",       away:"Morocco",        group:"C", date:"13 Jun", result:"1-1"},
-  {no:7,  home:"Haiti",        away:"Scotland",       group:"C", date:"13 Jun", result:"0-1"},
-  {no:5,  home:"Australia",    away:"Türkiye",        group:"D", date:"14 Jun", result:"2-0"},
-  {no:12, home:"Germany",      away:"Curaçao",        group:"E", date:"14 Jun", result:"7-1"},
-  {no:11, home:"Netherlands",  away:"Japan",          group:"F", date:"14 Jun", result:"2-2"},
-  {no:10, home:"Ivory Coast",  away:"Ecuador",        group:"E", date:"14 Jun", result:"1-0"},
-  {no:9,  home:"Sweden",       away:"Tunisia",        group:"F", date:"14 Jun", result:"5-1"},
-  {no:13, home:"Spain",        away:"Cape Verde",     group:"H", date:"15 Jun", result:"0-0"},
+  {no:1,  home:"Mexico",       away:"South Africa",  group:"A", date:"11 Jun", result:""},
+  {no:3,  home:"South Korea",  away:"Czechia",        group:"A", date:"11 Jun", result:""},
+  {no:2,  home:"Canada",       away:"Bosnia & Herz.", group:"B", date:"12 Jun", result:""},
+  {no:4,  home:"USA",          away:"Paraguay",       group:"D", date:"12 Jun", result:""},
+  {no:8,  home:"Qatar",        away:"Switzerland",    group:"B", date:"13 Jun", result:""},
+  {no:6,  home:"Brazil",       away:"Morocco",        group:"C", date:"13 Jun", result:""},
+  {no:7,  home:"Haiti",        away:"Scotland",       group:"C", date:"13 Jun", result:""},
+  {no:5,  home:"Australia",    away:"Türkiye",        group:"D", date:"14 Jun", result:""},
+  {no:12, home:"Germany",      away:"Curaçao",        group:"E", date:"14 Jun", result:""},
+  {no:11, home:"Netherlands",  away:"Japan",          group:"F", date:"14 Jun", result:""},
+  {no:10, home:"Ivory Coast",  away:"Ecuador",        group:"E", date:"14 Jun", result:""},
+  {no:9,  home:"Sweden",       away:"Tunisia",        group:"F", date:"14 Jun", result:""},
+  {no:13, home:"Spain",        away:"Cape Verde",     group:"H", date:"15 Jun", result:""},
   {no:14, home:"Belgium",      away:"Egypt",          group:"G", date:"15 Jun", result:""},
   {no:15, home:"Saudi Arabia", away:"Uruguay",        group:"H", date:"15 Jun", result:""},
   {no:16, home:"Iran",         away:"New Zealand",    group:"G", date:"15 Jun", result:""},
@@ -1168,15 +1168,21 @@ const JSONBIN_BIN_ID = '6a391fe2da38895dfeeb0f01';
 const JSONBIN_KEY    = '$2a$10$TGVkJZoxvWFGoP1IobUQEeDWSfmIP5aCM1MfBIbrJlA6yKd3Ud8eS';
 const JSONBIN_URL    = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
+// Reset all match results to empty
+function resetMatchResults(){
+  MATCHES.forEach(m=>m.result='');
+}
+
 async function saveToStorage(){
-  // Always save to localStorage as immediate backup
   const results={};
   MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
+
+  // Save to localStorage as immediate cache
   try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
 
-  // Push to JSONBin cloud so all members sync
+  // Push to JSONBin cloud so ALL members see the same data
   try{
-    await fetch(JSONBIN_URL, {
+    const r = await fetch(JSONBIN_URL, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1185,72 +1191,80 @@ async function saveToStorage(){
       },
       body: JSON.stringify({results})
     });
-    showToast('Saved & synced to cloud ☁️');
+    if(r.ok){
+      showToast('✅ Synced to cloud — all members will see update!');
+    } else {
+      showToast('⚠️ Cloud save failed, saved locally only');
+    }
   }catch(e){
-    showToast('Saved locally (cloud unreachable)');
+    showToast('⚠️ Offline — saved locally only');
   }
 }
 
 async function loadFromStorage(){
-  // Try cloud first (all members get same data)
+  // Reset first so we start clean — no stale hardcoded data
+  resetMatchResults();
+
+  // Try JSONBin cloud (single source of truth for all members)
   try{
-    const r = await fetch(JSONBIN_URL, {
+    const r = await fetch(JSONBIN_URL + '/latest', {
       headers: { 'X-Master-Key': JSONBIN_KEY }
     });
     if(r.ok){
       const data = await r.json();
       const results = data.record?.results || {};
-      if(Object.keys(results).length > 0){
-        Object.entries(results).forEach(([no,result])=>{
-          const match=MATCHES.find(m=>m.no===parseInt(no));
-          if(match&&result) match.result=result;
-        });
-        // Also update localStorage as cache
-        try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
-        return; // Cloud loaded successfully
-      }
+      // Apply cloud results to MATCHES
+      Object.entries(results).forEach(([no,result])=>{
+        const match=MATCHES.find(m=>m.no===parseInt(no));
+        if(match && result) match.result=result;
+      });
+      // Cache in localStorage
+      try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
+      const count = Object.keys(results).length;
+      document.getElementById('update-time').textContent=`☁️ Cloud sync · ${count} results · ${new Date().toLocaleTimeString()}`;
+      return true;
     }
   }catch(e){}
 
-  // Fallback to localStorage if cloud fails
+  // Fallback: use localStorage cache
   try{
     const saved=localStorage.getItem('fcf2026_results');
-    if(!saved)return;
-    const results=JSON.parse(saved);
-    Object.entries(results).forEach(([no,result])=>{
-      const match=MATCHES.find(m=>m.no===parseInt(no));
-      if(match&&result) match.result=result;
-    });
+    if(saved){
+      const results=JSON.parse(saved);
+      Object.entries(results).forEach(([no,result])=>{
+        const match=MATCHES.find(m=>m.no===parseInt(no));
+        if(match && result) match.result=result;
+      });
+      const count = Object.keys(results).length;
+      document.getElementById('update-time').textContent=`💾 Cached · ${count} results · ${new Date().toLocaleTimeString()}`;
+      return true;
+    }
   }catch(e){}
+
+  document.getElementById('update-time').textContent='⚠️ No data — check connection';
+  return false;
 }
 
 // Init
 document.querySelectorAll('#header-logo-img,#hero-logo-img').forEach(img=>img.src=LOGO_SRC);
 
-// Render instantly with hardcoded data first (no waiting)
-processLocalMatches();
-render();
+// Show loading state immediately
 document.getElementById('sdot').className='status-dot';
-document.getElementById('update-time').textContent='Loading cloud data...';
+document.getElementById('update-time').textContent='Loading...';
+document.getElementById('leaderboard-container').innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">⏳ Syncing from cloud...</div>';
 
-// Then load cloud data and re-render
+// Load cloud data first, then render — single source of truth
 (async () => {
-  await loadFromStorage();   // fetch from JSONBin cloud
-  processLocalMatches();     // reprocess with cloud results merged in
-  render();                  // re-render with updated data
-  document.getElementById('update-time').textContent='Synced · '+new Date().toLocaleTimeString();
+  await loadFromStorage();   // resets MATCHES, then fills from JSONBin cloud
+  processLocalMatches();     // calculate stats from cloud data
+  render();                  // render everything
 
-  // Then try football API in background
-  setTimeout(fetchData, 200);
-  setInterval(fetchData, 3*60*1000);
-
-  // Re-sync from cloud every 60 seconds so all members stay in sync
+  // Auto re-sync from cloud every 30 seconds — all members stay in sync
   setInterval(async ()=>{
     await loadFromStorage();
     processLocalMatches();
     render();
-    document.getElementById('update-time').textContent='Synced · '+new Date().toLocaleTimeString();
-  }, 60*1000);
+  }, 30*1000);
 })();
 </script>
 </body>
