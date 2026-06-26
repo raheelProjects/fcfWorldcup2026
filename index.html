@@ -1333,8 +1333,6 @@ async function saveKnockout() {
   ['r32','r16','qf','sf','final'].forEach(round => {
     KNOCKOUT[round].forEach(m => { data[m.id] = {home:m.home, away:m.away, score:m.score}; });
   });
-  try { localStorage.setItem('fcf2026_knockout', JSON.stringify(data)); } catch(e) {}
-
   // Also push knockout to Gist alongside results
   try {
     const results = {};
@@ -1555,8 +1553,7 @@ async function saveToStorage(){
   const results={};
   MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
 
-  // Always save locally first (instant)
-  try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
+  // Gist is the ONLY source of truth — no localStorage
 
   // Get current knockout data too
   const koData={};
@@ -1632,57 +1629,32 @@ async function loadFromStorage(){
     }
   }catch(e){}
 
-  // Fallback: use localStorage cache (never wipe with empty cache)
-  try{
-    const saved=localStorage.getItem('fcf2026_results');
-    if(saved){
-      const results=JSON.parse(saved);
-      const count = Object.keys(results).length;
-      if(count > 0){
-        resetMatchResults();
-        Object.entries(results).forEach(([no,result])=>{
-          const match=MATCHES.find(m=>m.no===parseInt(no));
-          if(match && result) match.result=result;
-        });
-      }
-      document.getElementById('update-time').textContent=`💾 Cached · ${count} results · ${new Date().toLocaleTimeString()}`;
-      return true;
-    }
-  }catch(e){}
-
-  document.getElementById('update-time').textContent='⚠️ No cloud data yet';
+  // Fallback: Gist unreachable, show empty/hardcoded state
+  document.getElementById('update-time').textContent='⚠️ Cloud unreachable · No data loaded';
   return false;
 }
 
-// Init
+// Init — clear all localStorage so Gist is single source of truth
+try{
+  localStorage.removeItem('fcf2026_results');
+  localStorage.removeItem('fcf2026_knockout');
+}catch(e){}
+
 document.querySelectorAll('#header-logo-img,#hero-logo-img').forEach(img=>img.src=LOGO_SRC);
 
-// Show scores from localStorage immediately (instant, no flicker)
+// Show empty standings immediately while Gist loads
 document.getElementById('sdot').className='status-dot';
-try{
-  const cached = localStorage.getItem('fcf2026_results');
-  if(cached){
-    const results = JSON.parse(cached);
-    if(Object.keys(results).length > 0){
-      resetMatchResults();
-      Object.entries(results).forEach(([no,result])=>{
-        const m=MATCHES.find(x=>x.no===parseInt(no));
-        if(m&&result) m.result=result;
-      });
-    }
-  }
-}catch(e){}
 processLocalMatches();
 render();
-document.getElementById('update-time').textContent='Loading cloud...';
+document.getElementById('update-time').textContent='⏳ Loading from cloud...';
 
-// Then sync from Gist in background
+// Load from Gist — this is the ONLY source of truth
 (async () => {
   await loadFromStorage();
   processLocalMatches();
   render();
 
-  // Auto re-sync every 60 seconds (was 30 — less aggressive to avoid wiping)
+  // Auto re-sync every 60 seconds
   setInterval(async ()=>{
     await loadFromStorage();
     processLocalMatches();
