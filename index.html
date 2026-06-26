@@ -1543,7 +1543,7 @@ function showToast(msg){
 
 // ── CLOUD SYNC via GitHub Gist ──
 const GIST_ID    = 'cb6c17929fd5284e0c361fd4e36a1798';
-const GIST_TOKEN = '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';
+const GIST_TOKEN = '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';
 const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
 
 // Reset all match results to empty
@@ -1572,21 +1572,23 @@ async function saveToStorage(){
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer '+GIST_TOKEN,
+        'Authorization': 'token '+GIST_TOKEN,
+        'Accept': 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28'
       },
       body: JSON.stringify({files:{'fcf2026.json':{content:content}}})
     });
     if(r.ok){
-      showToast('✅ Synced to cloud — all members will see update!');
+      showToast('✅ Synced to cloud!');
     } else {
-      const err = await r.json();
-      console.error('Gist save error:', r.status, err.message);
-      showToast('⚠️ Token expired — please update token (saved locally)');
+      let errMsg = r.status;
+      try{ const e=await r.json(); errMsg=e.message||r.status; }catch(_){}
+      console.error('Gist save failed:', r.status, errMsg);
+      showToast('⚠️ Cloud save failed ('+errMsg+'). Saved locally.');
     }
   }catch(e){
     console.error('Gist save exception:', e);
-    showToast('⚠️ Offline — saved locally only');
+    showToast('⚠️ Network error. Saved locally only.');
   }
 }
 
@@ -1597,9 +1599,23 @@ async function loadFromStorage(){
   // Try GitHub Gist (public, free, unlimited reads)
   try{
     // Add timestamp to bypass browser cache
-    const r = await fetch(`https://gist.githubusercontent.com/raw/${GIST_ID}/fcf2026.json?t=${Date.now()}`);
+    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': 'token '+GIST_TOKEN,
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Cache-Control': 'no-cache'
+      }
+    });
     if(r.ok){
-      const data = await r.json();
+      const resp = await r.json();
+      // GitHub API returns gist with files object
+      let data = {};
+      if(resp.files && resp.files['fcf2026.json']){
+        try{ data = JSON.parse(resp.files['fcf2026.json'].content); }catch(_){}
+      } else if(resp.results){
+        data = resp; // already parsed JSON content
+      }
       const results = data.results || {};
       Object.entries(results).forEach(([no,result])=>{
         const match=MATCHES.find(m=>m.no===parseInt(no));
