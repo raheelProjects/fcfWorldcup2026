@@ -271,11 +271,52 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .stats-two-col { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
 @media(max-width:640px){ .stats-two-col { grid-template-columns:1fr; } .podium-col { max-width:120px; } }
 
+/* ── GROUP STANDINGS ── */
+.groups-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px; }
+.group-card { background:var(--white);border-radius:12px;box-shadow:var(--shadow);overflow:hidden; }
+.group-card-header { padding:10px 16px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;color:#fff;display:flex;align-items:center;gap:8px; }
+.group-table { width:100%;border-collapse:collapse;font-size:12px; }
+.group-table th { padding:6px 10px;text-align:center;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--bg); }
+.group-table th:nth-child(2) { text-align:left; }
+.group-table td { padding:8px 10px;text-align:center;border-top:1px solid var(--border); }
+.group-table td:nth-child(2) { text-align:left;font-weight:600;color:var(--text); }
+.group-table tr.qualified td { background:#f0fdf4; }
+.group-table tr.qualified-3rd td { background:#fefce8; }
+.group-table .g-pts { font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--red); }
+.group-team-name { font-size:12px;font-weight:700; }
+.qual-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px; }
+
+/* ── KNOCKOUT BRACKET ── */
+.bracket-wrap { overflow-x:auto;padding-bottom:16px; }
+.bracket { display:flex;gap:0;min-width:900px; }
+.bracket-round { display:flex;flex-direction:column;flex:1;min-width:160px; }
+.bracket-round-title { text-align:center;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;color:var(--blue);padding:10px 0 16px;border-bottom:2px solid var(--blue-light);margin-bottom:16px; }
+.bracket-matches { display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:8px; }
+.bracket-match { background:var(--white);border-radius:8px;box-shadow:var(--shadow);overflow:hidden;margin:4px 6px;position:relative; }
+.bracket-match-inner { display:flex;flex-direction:column; }
+.bracket-team { display:flex;justify-content:space-between;align-items:center;padding:7px 10px;font-size:12px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border); }
+.bracket-team:last-child { border-bottom:none; }
+.bracket-team.winner { background:#f0fdf4;color:var(--green); }
+.bracket-team.tbd { color:var(--muted);font-weight:400;font-style:italic; }
+.bracket-score { font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--red);min-width:20px;text-align:right; }
+.bracket-match-num { position:absolute;top:2px;right:4px;font-size:9px;color:#cbd5e1; }
+.connector-line { display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:18px;padding:0 2px; }
+
+/* FINAL SPECIAL */
+.bracket-match.final { border:2px solid #FFD700;box-shadow:0 4px 20px rgba(245,200,66,0.3); }
+.bracket-match.final .bracket-round-title { color:#b45309; }
+
+.champion-box { background:linear-gradient(135deg,var(--blue),var(--blue-dark));border-radius:12px;padding:20px;text-align:center;color:#fff;margin-top:8px; }
+.champion-trophy { font-size:48px;display:block;margin-bottom:8px; }
+.champion-label { font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:#FFD700; }
+.champion-name { font-size:16px;font-weight:700;margin-top:4px; }
+
 @media (max-width: 640px) {
   .hide-sm { display: none; }
   .main { padding: 12px; }
   .cards-grid { grid-template-columns: 1fr; }
   .header-top { padding: 10px 14px; }
+  .groups-grid { grid-template-columns: 1fr; }
 }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -307,6 +348,8 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 <div class="tabs">
   <button class="tab active" onclick="switchTab('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab" onclick="switchTab('cards',this)">🃏 Player Cards</button>
+  <button class="tab" onclick="switchTab('groups',this)">📊 Group Standings</button>
+  <button class="tab" onclick="switchTab('bracket',this)">🥊 Knockout</button>
   <button class="tab" onclick="switchTab('matches',this)">📅 Matches</button>
   <button class="tab" onclick="switchTab('rules',this)">📋 Rules</button>
   <button class="tab" onclick="switchTab('stats',this)">📈 Stats</button>
@@ -394,6 +437,21 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     </div>
   </div>
 
+  <!-- GROUP STANDINGS TAB -->
+  <div id="tab-groups" class="tab-panel">
+    <div class="section-title">📊 Group Standings</div>
+    <div id="groups-container" class="groups-grid"></div>
+  </div>
+
+  <!-- KNOCKOUT BRACKET TAB -->
+  <div id="tab-bracket" class="tab-panel">
+    <div class="section-title">🥊 Knockout Bracket</div>
+    <div class="bracket-wrap">
+      <div id="bracket-container" class="bracket"></div>
+    </div>
+    <div id="champion-container"></div>
+  </div>
+
   <div id="tab-admin" class="tab-panel">
     <div class="section-title">🔐 Admin Panel</div>
     <div id="admin-lock" class="admin-lock">
@@ -409,6 +467,13 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
       </div>
       <div class="admin-filter-bar" id="admin-filter-bar"></div>
       <div id="admin-matches-list"></div>
+
+      <div style="margin-top:24px;border-top:2px solid var(--border);padding-top:16px;">
+        <div class="section-title" style="font-size:16px;">🥊 Knockout Bracket Editor</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter team names and scores for knockout rounds. Use "4-2 (pen)" format for penalty shootouts.</div>
+        <div id="knockout-admin-list"></div>
+        <button onclick="saveKnockout();renderBracket();showToast('✅ Bracket saved!');" style="margin-top:12px;background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Save Bracket</button>
+      </div>
     </div>
   </div>
 
@@ -768,6 +833,8 @@ function render(){
   renderMover(allSorted);
   populateH2H();
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
+  if(document.getElementById('tab-groups').classList.contains('active')) renderGroups();
+  if(document.getElementById('tab-bracket').classList.contains('active')) renderBracket();
 }
 
 // ── FETCH: Try API for newer results, but ALWAYS show local data first ──
@@ -825,7 +892,9 @@ function switchTab(name,el){
   document.getElementById('tab-'+name).classList.add('active');
   el.classList.add('active');
   if(name==='matches') renderMatches();
-  if(name==='admin'&&adminUnlocked) renderAdminMatches();
+  if(name==='groups') renderGroups();
+  if(name==='bracket') renderBracket();
+  if(name==='admin'&&adminUnlocked){ renderAdminMatches(); renderKnockoutAdmin(); }
   if(name==='stats'){ renderPodium(allSorted);renderMover(allSorted);renderGoalFeed(); }
   if(name==='h2h') populateH2H();
 }
@@ -1091,8 +1160,287 @@ async function downloadShareCard(){
 }
 document.getElementById('share-modal')?.addEventListener('click',function(e){if(e.target===this)closeShareModal();});
 
+// ── GROUP STANDINGS ──
+const GROUP_TEAMS = {
+  A: ["Mexico","South Korea","Czechia","South Africa"],
+  B: ["Canada","Qatar","Switzerland","Bosnia & Herz."],
+  C: ["Brazil","Morocco","Haiti","Scotland"],
+  D: ["USA","Paraguay","Australia","Türkiye"],
+  E: ["Germany","Ecuador","Ivory Coast","Curaçao"],
+  F: ["Netherlands","Japan","Sweden","Tunisia"],
+  G: ["Belgium","Egypt","Iran","New Zealand"],
+  H: ["Spain","Saudi Arabia","Uruguay","Cape Verde"],
+  I: ["France","Norway","Senegal","Iraq"],
+  J: ["Argentina","Austria","Algeria","Jordan"],
+  K: ["Portugal","Colombia","DR Congo","Uzbekistan"],
+  L: ["England","Croatia","Ghana","Panama"],
+};
+
+function calcGroupStandings(group) {
+  const teams = GROUP_TEAMS[group];
+  const stats = {};
+  teams.forEach(t => stats[t] = {name:t, p:0, w:0, d:0, l:0, gf:0, ga:0, pts:0});
+
+  MATCHES.filter(m => m.group === group && m.result).forEach(m => {
+    const [hg, ag] = m.result.split('-').map(Number);
+    const h = m.home, a = m.away;
+    if (!stats[h] || !stats[a]) return;
+    stats[h].p++; stats[a].p++;
+    stats[h].gf += hg; stats[h].ga += ag;
+    stats[a].gf += ag; stats[a].ga += hg;
+    if (hg > ag)      { stats[h].w++; stats[h].pts+=3; stats[a].l++; }
+    else if (ag > hg) { stats[a].w++; stats[a].pts+=3; stats[h].l++; }
+    else              { stats[h].d++; stats[h].pts+=1; stats[a].d++; stats[a].pts+=1; }
+  });
+
+  return Object.values(stats).sort((a,b) =>
+    b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf
+  );
+}
+
+function renderGroups() {
+  const el = document.getElementById('groups-container');
+  if (!el) return;
+  const groups = Object.keys(GROUP_TEAMS);
+  el.innerHTML = groups.map(g => {
+    const standings = calcGroupStandings(g);
+    const color = GRP_COLORS[g] || '#003DA5';
+    const rows = standings.map((t, i) => {
+      const gd = t.gf - t.ga;
+      const cls = i < 2 ? 'qualified' : i === 2 ? 'qualified-3rd' : '';
+      const dot = i < 2 ? `<span class="qual-dot" style="background:#16a34a"></span>`
+                : i === 2 ? `<span class="qual-dot" style="background:#ca8a04"></span>`
+                : `<span class="qual-dot" style="background:#dc2626"></span>`;
+      return `<tr class="${cls}">
+        <td>${dot}${i+1}</td>
+        <td class="group-team-name">${norm(t.name)}</td>
+        <td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+        <td>${t.gf}</td><td>${t.ga}</td>
+        <td style="color:${gd>0?'#15803d':gd<0?'#dc2626':'#6b7280'};font-weight:700">${gd>0?'+':''}${gd}</td>
+        <td class="g-pts">${t.pts}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="group-card">
+      <div class="group-card-header" style="background:${color}">⚽ Group ${g}</div>
+      <table class="group-table">
+        <thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>PTS</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="padding:6px 10px;font-size:10px;color:var(--muted);display:flex;gap:12px;">
+        <span><span class="qual-dot" style="background:#16a34a"></span>Advance</span>
+        <span><span class="qual-dot" style="background:#ca8a04"></span>3rd (maybe)</span>
+        <span><span class="qual-dot" style="background:#dc2626"></span>Eliminated</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── KNOCKOUT BRACKET ──
+// Structure: 32 teams → R32 → R16 → QF → SF → Final → Champion
+// For WC2026 (48 teams, 12 groups): top 2 from each group + 8 best 3rd = 32 teams
+const KNOCKOUT = {
+  r32: [
+    {id:'r32-1',  home:'Winner A',  away:'3rd D/E/F',  score:''},
+    {id:'r32-2',  home:'Winner C',  away:'3rd A/B/G',  score:''},
+    {id:'r32-3',  home:'Winner E',  away:'Runner B',   score:''},
+    {id:'r32-4',  home:'Winner G',  away:'Runner H',   score:''},
+    {id:'r32-5',  home:'Winner B',  away:'3rd A/C/D',  score:''},
+    {id:'r32-6',  home:'Winner D',  away:'Runner C',   score:''},
+    {id:'r32-7',  home:'Winner F',  away:'Runner E',   score:''},
+    {id:'r32-8',  home:'Winner H',  away:'3rd B/C/F',  score:''},
+    {id:'r32-9',  home:'Winner I',  away:'3rd G/H/K',  score:''},
+    {id:'r32-10', home:'Winner K',  away:'Runner L',   score:''},
+    {id:'r32-11', home:'Winner J',  away:'Runner I',   score:''},
+    {id:'r32-12', home:'Winner L',  away:'Runner K',   score:''},
+    {id:'r32-13', home:'Runner A',  away:'3rd I/J/L',  score:''},
+    {id:'r32-14', home:'Runner F',  away:'Runner G',   score:''},
+    {id:'r32-15', home:'Runner J',  away:'3rd F/H/I',  score:''},
+    {id:'r32-16', home:'Runner D',  away:'Runner B',   score:''},  // adjusted placeholder
+  ],
+  r16: [
+    {id:'r16-1', home:'W R32-1', away:'W R32-2', score:''},
+    {id:'r16-2', home:'W R32-3', away:'W R32-4', score:''},
+    {id:'r16-3', home:'W R32-5', away:'W R32-6', score:''},
+    {id:'r16-4', home:'W R32-7', away:'W R32-8', score:''},
+    {id:'r16-5', home:'W R32-9', away:'W R32-10', score:''},
+    {id:'r16-6', home:'W R32-11', away:'W R32-12', score:''},
+    {id:'r16-7', home:'W R32-13', away:'W R32-14', score:''},
+    {id:'r16-8', home:'W R32-15', away:'W R32-16', score:''},
+  ],
+  qf: [
+    {id:'qf-1', home:'W R16-1', away:'W R16-2', score:''},
+    {id:'qf-2', home:'W R16-3', away:'W R16-4', score:''},
+    {id:'qf-3', home:'W R16-5', away:'W R16-6', score:''},
+    {id:'qf-4', home:'W R16-7', away:'W R16-8', score:''},
+  ],
+  sf: [
+    {id:'sf-1', home:'W QF-1', away:'W QF-2', score:''},
+    {id:'sf-2', home:'W QF-3', away:'W QF-4', score:''},
+  ],
+  final: [
+    {id:'final', home:'W SF-1', away:'W SF-2', score:''},
+  ],
+};
+
+// Load knockout data from localStorage
+function loadKnockout() {
+  try {
+    const saved = localStorage.getItem('fcf2026_knockout');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    ['r32','r16','qf','sf','final'].forEach(round => {
+      KNOCKOUT[round].forEach(m => {
+        if (data[m.id]) {
+          m.home  = data[m.id].home  || m.home;
+          m.away  = data[m.id].away  || m.away;
+          m.score = data[m.id].score || '';
+        }
+      });
+    });
+  } catch(e) {}
+}
+
+async function saveKnockout() {
+  const data = {};
+  ['r32','r16','qf','sf','final'].forEach(round => {
+    KNOCKOUT[round].forEach(m => { data[m.id] = {home:m.home, away:m.away, score:m.score}; });
+  });
+  try { localStorage.setItem('fcf2026_knockout', JSON.stringify(data)); } catch(e) {}
+
+  // Also push knockout to Gist alongside results
+  try {
+    const results = {};
+    MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
+    const content = JSON.stringify({results, knockout:data}, null, 2);
+    await fetch(GIST_URL, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `token ${GIST_TOKEN}`
+      },
+      body: JSON.stringify({ files: { 'fcf2026.json': { content } } })
+    });
+  } catch(e) {}
+}
+
+function getWinner(match) {
+  if (!match.score) return null;
+  const parts = match.score.split('-');
+  if (parts.length !== 2) return null;
+  // Handle penalties: "1-1 (4-3)" format
+  const main = match.score.match(/^(\d+)-(\d+)/);
+  if (!main) return null;
+  const h = parseInt(main[1]), a = parseInt(main[2]);
+  if (h > a) return match.home;
+  if (a > h) return match.away;
+  // Draw — check penalties
+  const pen = match.score.match(/\((\d+)-(\d+)\)/);
+  if (pen) return parseInt(pen[1]) > parseInt(pen[2]) ? match.home : match.away;
+  return null;
+}
+
+function renderBracket() {
+  const el = document.getElementById('bracket-container');
+  const champ = document.getElementById('champion-container');
+  if (!el) return;
+
+  loadKnockout();
+
+  const rounds = [
+    {key:'r32',  label:'Round of 32', matches: KNOCKOUT.r32},
+    {key:'r16',  label:'Round of 16', matches: KNOCKOUT.r16},
+    {key:'qf',   label:'Quarter Finals', matches: KNOCKOUT.qf},
+    {key:'sf',   label:'Semi Finals', matches: KNOCKOUT.sf},
+    {key:'final',label:'⭐ FINAL', matches: KNOCKOUT.final},
+  ];
+
+  el.innerHTML = rounds.map(round => {
+    const matchesHTML = round.matches.map(m => {
+      const winner = getWinner(m);
+      const hCls = !m.score ? '' : winner===m.home ? 'winner' : '';
+      const aCls = !m.score ? '' : winner===m.away ? 'winner' : '';
+      const hTbd = m.home.startsWith('W ') || m.home.startsWith('Winner') || m.home.startsWith('Runner') || m.home.startsWith('3rd');
+      const aTbd = m.away.startsWith('W ') || m.away.startsWith('Winner') || m.away.startsWith('Runner') || m.away.startsWith('3rd');
+      const [hs, as_] = m.score ? m.score.split('-') : ['',''];
+      return `<div class="bracket-match${round.key==='final'?' final':''}">
+        <span class="bracket-match-num">${m.id}</span>
+        <div class="bracket-match-inner">
+          <div class="bracket-team ${hCls} ${hTbd&&!m.score?'tbd':''}">
+            <span>${m.home}</span>
+            <span class="bracket-score">${hs||''}</span>
+          </div>
+          <div class="bracket-team ${aCls} ${aTbd&&!m.score?'tbd':''}">
+            <span>${m.away}</span>
+            <span class="bracket-score">${as_||''}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="bracket-round">
+      <div class="bracket-round-title">${round.label}</div>
+      <div class="bracket-matches">${matchesHTML}</div>
+    </div>`;
+  }).join('');
+
+  // Champion display
+  const finalMatch = KNOCKOUT.final[0];
+  const champion = getWinner(finalMatch);
+  if (champion) {
+    champ.innerHTML = `<div class="champion-box">
+      <span class="champion-trophy">🏆</span>
+      <div class="champion-label">World Cup 2026 Champion</div>
+      <div class="champion-name">${champion}</div>
+    </div>`;
+  } else {
+    champ.innerHTML = '';
+  }
+}
+
+function renderKnockoutAdmin(){
+  const el = document.getElementById('knockout-admin-list');
+  if(!el) return;
+  loadKnockout();
+  const rounds = [
+    {key:'r32', label:'Round of 32'},
+    {key:'r16', label:'Round of 16'},
+    {key:'qf',  label:'Quarter Finals'},
+    {key:'sf',  label:'Semi Finals'},
+    {key:'final',label:'Final'},
+  ];
+  el.innerHTML = rounds.map(round => `
+    <div style="margin-bottom:16px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--blue);margin-bottom:8px;">${round.label}</div>
+      ${KNOCKOUT[round.key].map(m => `
+        <div style="background:var(--white);border-radius:8px;box-shadow:var(--shadow);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:10px;color:#cbd5e1;min-width:52px">${m.id}</span>
+          <input id="ko-home-${m.id}" value="${m.home}" placeholder="Home team"
+            style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
+          <input id="ko-score-${m.id}" value="${m.score}" placeholder="e.g. 2-1"
+            style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'Bebas Neue',sans-serif;text-align:center;outline:none;">
+          <input id="ko-away-${m.id}" value="${m.away}" placeholder="Away team"
+            style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
+          <button onclick="applyKOMatch('${m.id}')" style="background:var(--red);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Apply</button>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function applyKOMatch(id){
+  ['r32','r16','qf','sf','final'].forEach(round => {
+    const m = KNOCKOUT[round].find(x => x.id===id);
+    if(m){
+      m.home  = document.getElementById('ko-home-'+id)?.value || m.home;
+      m.away  = document.getElementById('ko-away-'+id)?.value || m.away;
+      m.score = document.getElementById('ko-score-'+id)?.value || '';
+    }
+  });
+  saveKnockout();
+  renderBracket();
+  showToast('✅ Match updated!');
+}
+
 // Admin
-const ADMIN_PASS='fcf2026';
+const ADMIN_PASS='fcf2027';
 let adminUnlocked=false;
 let adminGrpFilter='All';
 
@@ -1163,10 +1511,10 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// ── CLOUD SYNC via JSONBin ──
-const JSONBIN_BIN_ID = '6a391fe2da38895dfeeb0f01';
-const JSONBIN_KEY    = '$2a$10$TGVkJZoxvWFGoP1IobUQEeDWSfmIP5aCM1MfBIbrJlA6yKd3Ud8eS';
-const JSONBIN_URL    = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+// ── CLOUD SYNC via GitHub Gist ──
+const GIST_ID    = 'cb6c17929fd5284e0c361fd4e36a1798';
+const GIST_TOKEN = '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';
+const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
 
 // Reset all match results to empty
 function resetMatchResults(){
@@ -1180,16 +1528,18 @@ async function saveToStorage(){
   // Save to localStorage as immediate cache
   try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
 
-  // Push to JSONBin cloud so ALL members see the same data
+  // Push to GitHub Gist — free, unlimited, all members sync
   try{
-    const r = await fetch(JSONBIN_URL, {
-      method: 'PUT',
+    const content = JSON.stringify({results}, null, 2);
+    const r = await fetch(GIST_URL, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY,
-        'X-Bin-Versioning': 'false'
+        'Authorization': `token ${GIST_TOKEN}`
       },
-      body: JSON.stringify({results})
+      body: JSON.stringify({
+        files: { 'fcf2026.json': { content } }
+      })
     });
     if(r.ok){
       showToast('✅ Synced to cloud — all members will see update!');
@@ -1202,26 +1552,38 @@ async function saveToStorage(){
 }
 
 async function loadFromStorage(){
-  // Reset first so we start clean — no stale hardcoded data
+  // Reset first — clean slate every time
   resetMatchResults();
 
-  // Try JSONBin cloud (single source of truth for all members)
+  // Try GitHub Gist (public, free, unlimited reads)
   try{
-    const r = await fetch(JSONBIN_URL + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_KEY }
-    });
+    // Add timestamp to bypass browser cache
+    const r = await fetch(`https://gist.githubusercontent.com/raw/${GIST_ID}/fcf2026.json?t=${Date.now()}`);
     if(r.ok){
       const data = await r.json();
-      const results = data.record?.results || {};
-      // Apply cloud results to MATCHES
+      const results = data.results || {};
       Object.entries(results).forEach(([no,result])=>{
         const match=MATCHES.find(m=>m.no===parseInt(no));
         if(match && result) match.result=result;
       });
+      // Also load knockout bracket data
+      if(data.knockout){
+        const kd = data.knockout;
+        ['r32','r16','qf','sf','final'].forEach(round=>{
+          KNOCKOUT[round].forEach(m=>{
+            if(kd[m.id]){
+              m.home  = kd[m.id].home  || m.home;
+              m.away  = kd[m.id].away  || m.away;
+              m.score = kd[m.id].score || '';
+            }
+          });
+        });
+        try{ localStorage.setItem('fcf2026_knockout', JSON.stringify(kd)); }catch(e){}
+      }
       // Cache in localStorage
       try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
       const count = Object.keys(results).length;
-      document.getElementById('update-time').textContent=`☁️ Cloud sync · ${count} results · ${new Date().toLocaleTimeString()}`;
+      document.getElementById('update-time').textContent=`☁️ ${count} results · ${new Date().toLocaleTimeString()}`;
       return true;
     }
   }catch(e){}
