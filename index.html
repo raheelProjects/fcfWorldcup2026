@@ -472,7 +472,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
         <div class="section-title" style="font-size:16px;">🥊 Knockout Bracket Editor</div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter team names and scores for knockout rounds. Use "4-2 (pen)" format for penalty shootouts.</div>
         <div id="knockout-admin-list"></div>
-        <button onclick="saveKnockout();renderBracket();showToast('✅ Bracket saved!');" style="margin-top:12px;background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Save Bracket</button>
+        <button onclick="(async()=>{await saveKnockout();renderBracket();})();" style="margin-top:12px;background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Save Bracket</button>
       </div>
     </div>
   </div>
@@ -1301,6 +1301,34 @@ function loadKnockout() {
 }
 
 async function saveKnockout() {
+  // Save knockout locally
+  const data={};
+  ['r32','r16','qf','sf','final'].forEach(function(round){
+    KNOCKOUT[round].forEach(function(m){ data[m.id]={home:m.home,away:m.away,score:m.score}; });
+  });
+  try{ localStorage.setItem('fcf2026_knockout',JSON.stringify(data)); }catch(e){}
+  // Sync everything to cloud
+  await saveToStorage();
+}
+
+function loadKnockout() {
+  try {
+    const saved = localStorage.getItem('fcf2026_knockout');
+    if (!saved) return;
+    const data = JSON.parse(saved);
+    ['r32','r16','qf','sf','final'].forEach(round => {
+      KNOCKOUT[round].forEach(m => {
+        if (data[m.id]) {
+          m.home  = data[m.id].home  || m.home;
+          m.away  = data[m.id].away  || m.away;
+          m.score = data[m.id].score || '';
+        }
+      });
+    });
+  } catch(e) {}
+}
+
+async function saveKnockout() {
   const data = {};
   ['r32','r16','qf','sf','final'].forEach(round => {
     KNOCKOUT[round].forEach(m => { data[m.id] = {home:m.home, away:m.away, score:m.score}; });
@@ -1399,30 +1427,31 @@ function renderBracket() {
 
 function renderKnockoutAdmin(){
   const el = document.getElementById('knockout-admin-list');
-  if(!el) return;
-  loadKnockout();
+  if(!el){ console.error('knockout-admin-list not found'); return; }
+  // KNOCKOUT object is already populated from cloud/localStorage at page load
   const rounds = [
-    {key:'r32', label:'Round of 32'},
-    {key:'r16', label:'Round of 16'},
-    {key:'qf',  label:'Quarter Finals'},
-    {key:'sf',  label:'Semi Finals'},
+    {key:'r32',  label:'Round of 32'},
+    {key:'r16',  label:'Round of 16'},
+    {key:'qf',   label:'Quarter Finals'},
+    {key:'sf',   label:'Semi Finals'},
     {key:'final',label:'Final'},
   ];
-  el.innerHTML = rounds.map(round => `
-    <div style="margin-bottom:16px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--blue);margin-bottom:8px;">${round.label}</div>
-      ${KNOCKOUT[round.key].map(m => `
-        <div style="background:var(--white);border-radius:8px;box-shadow:var(--shadow);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span style="font-size:10px;color:#cbd5e1;min-width:52px">${m.id}</span>
-          <input id="ko-home-${m.id}" value="${m.home}" placeholder="Home team"
-            style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
-          <input id="ko-score-${m.id}" value="${m.score}" placeholder="e.g. 2-1"
-            style="width:90px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'Bebas Neue',sans-serif;text-align:center;outline:none;">
-          <input id="ko-away-${m.id}" value="${m.away}" placeholder="Away team"
-            style="flex:1;min-width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Inter',sans-serif;outline:none;">
-          <button onclick="applyKOMatch('${m.id}')" style="background:var(--red);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Apply</button>
-        </div>`).join('')}
-    </div>`).join('');
+  let out = '';
+  rounds.forEach(function(round){
+    out += '<div style="margin-bottom:20px;">';
+    out += '<div style="font-family:Bebas Neue,sans-serif;font-size:15px;letter-spacing:2px;color:var(--blue);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border);">'+round.label+'</div>';
+    KNOCKOUT[round.key].forEach(function(m){
+      out += '<div style="background:var(--white);border-radius:8px;box-shadow:var(--shadow);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
+      out += '<span style="font-size:10px;color:#cbd5e1;min-width:52px">'+m.id+'</span>';
+      out += '<input id="ko-home-'+m.id+'" value="'+m.home+'" placeholder="Home team" style="flex:1;min-width:110px;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:Inter,sans-serif;outline:none;">';
+      out += '<input id="ko-score-'+m.id+'" value="'+m.score+'" placeholder="2-1" style="width:80px;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:14px;font-family:Bebas Neue,sans-serif;text-align:center;outline:none;">';
+      out += '<input id="ko-away-'+m.id+'" value="'+m.away+'" placeholder="Away team" style="flex:1;min-width:110px;padding:7px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:Inter,sans-serif;outline:none;">';
+      out += '<button onclick="applyKOMatch(\''+m.id+'\')" style="background:var(--red);color:#fff;border:none;padding:7px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;white-space:nowrap;">✓ Apply</button>';
+      out += '</div>';
+    });
+    out += '</div>';
+  });
+  el.innerHTML = out;
 }
 
 function applyKOMatch(id){
@@ -1451,6 +1480,7 @@ function checkPass(){
     document.getElementById('admin-lock').style.display='none';
     document.getElementById('admin-panel').style.display='block';
     renderAdminMatches();
+    renderKnockoutAdmin();
   } else {
     document.getElementById('pass-err').style.display='block';
   }
@@ -1513,7 +1543,7 @@ function showToast(msg){
 
 // ── CLOUD SYNC via GitHub Gist ──
 const GIST_ID    = 'cb6c17929fd5284e0c361fd4e36a1798';
-const GIST_TOKEN = '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';
+const GIST_TOKEN = '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';
 const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
 
 // Reset all match results to empty
@@ -1525,28 +1555,37 @@ async function saveToStorage(){
   const results={};
   MATCHES.forEach(m=>{ if(m.result) results[m.no]=m.result; });
 
-  // Save to localStorage as immediate cache
+  // Always save locally first (instant)
   try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
 
-  // Push to GitHub Gist — free, unlimited, all members sync
+  // Get current knockout data too
+  const koData={};
+  ['r32','r16','qf','sf','final'].forEach(function(round){
+    KNOCKOUT[round].forEach(function(m){ koData[m.id]={home:m.home,away:m.away,score:m.score}; });
+  });
+
+  const content = JSON.stringify({results:results, knockout:koData}, null, 2);
+
+  // Push to GitHub Gist
   try{
-    const content = JSON.stringify({results}, null, 2);
     const r = await fetch(GIST_URL, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `token ${GIST_TOKEN}`
+        'Authorization': 'Bearer '+GIST_TOKEN,
+        'X-GitHub-Api-Version': '2022-11-28'
       },
-      body: JSON.stringify({
-        files: { 'fcf2026.json': { content } }
-      })
+      body: JSON.stringify({files:{'fcf2026.json':{content:content}}})
     });
     if(r.ok){
       showToast('✅ Synced to cloud — all members will see update!');
     } else {
-      showToast('⚠️ Cloud save failed, saved locally only');
+      const err = await r.json();
+      console.error('Gist save error:', r.status, err.message);
+      showToast('⚠️ Token expired — please update token (saved locally)');
     }
   }catch(e){
+    console.error('Gist save exception:', e);
     showToast('⚠️ Offline — saved locally only');
   }
 }
