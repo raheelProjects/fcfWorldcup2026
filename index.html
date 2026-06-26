@@ -1543,7 +1543,7 @@ function showToast(msg){
 
 // ── CLOUD SYNC via GitHub Gist ──
 const GIST_ID    = 'cb6c17929fd5284e0c361fd4e36a1798';
-const GIST_TOKEN = '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';
+const GIST_TOKEN = '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';
 const GIST_URL   = `https://api.github.com/gists/${GIST_ID}`;
 
 // Reset all match results to empty
@@ -1599,23 +1599,9 @@ async function loadFromStorage(){
   // Try GitHub Gist (public, free, unlimited reads)
   try{
     // Add timestamp to bypass browser cache
-    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': 'token '+GIST_TOKEN,
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Cache-Control': 'no-cache'
-      }
-    });
+    const r = await fetch(`https://gist.githubusercontent.com/shozbro/${GIST_ID}/raw/fcf2026.json?t=${Date.now()}`);
     if(r.ok){
-      const resp = await r.json();
-      // GitHub API returns gist with files object
-      let data = {};
-      if(resp.files && resp.files['fcf2026.json']){
-        try{ data = JSON.parse(resp.files['fcf2026.json'].content); }catch(_){}
-      } else if(resp.results){
-        data = resp; // already parsed JSON content
-      }
+      const data = await r.json();
       const results = data.results || {};
       Object.entries(results).forEach(([no,result])=>{
         const match=MATCHES.find(m=>m.no===parseInt(no));
