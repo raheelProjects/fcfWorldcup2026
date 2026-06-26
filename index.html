@@ -519,7 +519,7 @@ const PARTICIPANTS = [
   {name:"Abdul Wahab Ahmed",   teams:["Portugal","England","Belgium","Norway"]},
   {name:"Suffian Ramay",       teams:["Spain","Brazil","Norway","Saudi Arabia"]},
   {name:"Shoaib Ghalib",       teams:["Portugal","Argentina","Belgium","USA"]},
-  {name:"Yasir Obaid",         teams:["Portugal","Brazil","Denmark","Japan"]},
+  {name:"Yasir Obaid",         teams:["Portugal","Brazil","Ivory Coast","Japan"]},
   {name:"Kumel Haider",        teams:["Portugal","Morocco","Croatia","Turkey"]},
   {name:"Syed Hamza Hussain",  teams:["Portugal","Brazil","Belgium","Turkey"]},
   {name:"Ahmed Mallick",       teams:["Portugal","Argentina","Croatia","Belgium"]},
@@ -1593,22 +1593,27 @@ async function saveToStorage(){
 }
 
 async function loadFromStorage(){
-  // Reset first — clean slate every time
-  resetMatchResults();
-
-  // Try GitHub Gist (public, free, unlimited reads)
+  // Try GitHub Gist first
   try{
-    // Add timestamp to bypass browser cache
     const r = await fetch(`https://gist.githubusercontent.com/shozbro/${GIST_ID}/raw/fcf2026.json?t=${Date.now()}`);
     if(r.ok){
       const data = await r.json();
       const results = data.results || {};
-      Object.entries(results).forEach(([no,result])=>{
-        const match=MATCHES.find(m=>m.no===parseInt(no));
-        if(match && result) match.result=result;
-      });
-      // Also load knockout bracket data
-      if(data.knockout){
+      const count = Object.keys(results).length;
+
+      // ONLY apply if Gist has data — never wipe with empty Gist
+      if(count > 0){
+        resetMatchResults(); // clear only when we have real data to replace with
+        Object.entries(results).forEach(([no,result])=>{
+          const match=MATCHES.find(m=>m.no===parseInt(no));
+          if(match && result) match.result=result;
+        });
+        // Cache in localStorage as backup
+        try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
+      }
+
+      // Load knockout bracket if present
+      if(data.knockout && Object.keys(data.knockout).length > 0){
         const kd = data.knockout;
         ['r32','r16','qf','sf','final'].forEach(round=>{
           KNOCKOUT[round].forEach(m=>{
@@ -1621,53 +1626,68 @@ async function loadFromStorage(){
         });
         try{ localStorage.setItem('fcf2026_knockout', JSON.stringify(kd)); }catch(e){}
       }
-      // Cache in localStorage
-      try{ localStorage.setItem('fcf2026_results',JSON.stringify(results)); }catch(e){}
-      const count = Object.keys(results).length;
+
       document.getElementById('update-time').textContent=`☁️ ${count} results · ${new Date().toLocaleTimeString()}`;
       return true;
     }
   }catch(e){}
 
-  // Fallback: use localStorage cache
+  // Fallback: use localStorage cache (never wipe with empty cache)
   try{
     const saved=localStorage.getItem('fcf2026_results');
     if(saved){
       const results=JSON.parse(saved);
-      Object.entries(results).forEach(([no,result])=>{
-        const match=MATCHES.find(m=>m.no===parseInt(no));
-        if(match && result) match.result=result;
-      });
       const count = Object.keys(results).length;
+      if(count > 0){
+        resetMatchResults();
+        Object.entries(results).forEach(([no,result])=>{
+          const match=MATCHES.find(m=>m.no===parseInt(no));
+          if(match && result) match.result=result;
+        });
+      }
       document.getElementById('update-time').textContent=`💾 Cached · ${count} results · ${new Date().toLocaleTimeString()}`;
       return true;
     }
   }catch(e){}
 
-  document.getElementById('update-time').textContent='⚠️ No data — check connection';
+  document.getElementById('update-time').textContent='⚠️ No cloud data yet';
   return false;
 }
 
 // Init
 document.querySelectorAll('#header-logo-img,#hero-logo-img').forEach(img=>img.src=LOGO_SRC);
 
-// Show loading state immediately
+// Show scores from localStorage immediately (instant, no flicker)
 document.getElementById('sdot').className='status-dot';
-document.getElementById('update-time').textContent='Loading...';
-document.getElementById('leaderboard-container').innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">⏳ Syncing from cloud...</div>';
+try{
+  const cached = localStorage.getItem('fcf2026_results');
+  if(cached){
+    const results = JSON.parse(cached);
+    if(Object.keys(results).length > 0){
+      resetMatchResults();
+      Object.entries(results).forEach(([no,result])=>{
+        const m=MATCHES.find(x=>x.no===parseInt(no));
+        if(m&&result) m.result=result;
+      });
+    }
+  }
+}catch(e){}
+processLocalMatches();
+render();
+document.getElementById('update-time').textContent='Loading cloud...';
 
-// Load cloud data first, then render — single source of truth
+// Then sync from Gist in background
 (async () => {
-  await loadFromStorage();   // resets MATCHES, then fills from JSONBin cloud
-  processLocalMatches();     // calculate stats from cloud data
-  render();                  // render everything
+  await loadFromStorage();
+  processLocalMatches();
+  render();
 
-  // Auto re-sync from cloud every 30 seconds — all members stay in sync
+  // Auto re-sync every 60 seconds (was 30 — less aggressive to avoid wiping)
   setInterval(async ()=>{
     await loadFromStorage();
     processLocalMatches();
     render();
-  }, 30*1000);
+  }, 60*1000);
 })();
 </script>
 </body>
