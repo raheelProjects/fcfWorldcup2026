@@ -832,6 +832,7 @@ function render(){
   renderPodium(allSorted);
   renderMover(allSorted);
   populateH2H();
+  autoPopulateKnockout(); // keep bracket in sync with results
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
   if(document.getElementById('tab-groups').classList.contains('active')) renderGroups();
   if(document.getElementById('tab-bracket').classList.contains('active')) renderBracket();
@@ -1315,12 +1316,139 @@ function getWinner(match) {
   return null;
 }
 
+// ── AUTO-POPULATE KNOCKOUT FROM GROUP STANDINGS ──
+// Official WC2026 R32 bracket seeding
+const R32_SEEDING = [
+  {id:'r32-1',  home:'A1', away:'3rd-DEF'},
+  {id:'r32-2',  home:'C1', away:'3rd-ABG'},
+  {id:'r32-3',  home:'E1', away:'B2'},
+  {id:'r32-4',  home:'G1', away:'H2'},
+  {id:'r32-5',  home:'B1', away:'3rd-ACD'},
+  {id:'r32-6',  home:'D1', away:'C2'},
+  {id:'r32-7',  home:'F1', away:'E2'},
+  {id:'r32-8',  home:'H1', away:'3rd-BCF'},
+  {id:'r32-9',  home:'I1', away:'3rd-GHK'},
+  {id:'r32-10', home:'K1', away:'L2'},
+  {id:'r32-11', home:'J1', away:'I2'},
+  {id:'r32-12', home:'L1', away:'K2'},
+  {id:'r32-13', home:'A2', away:'3rd-IJL'},
+  {id:'r32-14', home:'F2', away:'G2'},
+  {id:'r32-15', home:'J2', away:'3rd-FHI'},
+  {id:'r32-16', home:'D2', away:'B2'},
+];
+
+function getGroupFinished(group) {
+  const groupMatches = MATCHES.filter(m => m.group === group);
+  const total = groupMatches.length;
+  const played = groupMatches.filter(m => m.result !== '').length;
+  return played === total && total > 0;
+}
+
+function allGroupsFinished() {
+  return Object.keys(GROUP_TEAMS).every(g => getGroupFinished(g));
+}
+
+function get3rdPlaceTeams() {
+  // Get all 3rd place teams with their points for ranking
+  const thirds = [];
+  Object.keys(GROUP_TEAMS).forEach(g => {
+    const standings = calcGroupStandings(g);
+    if (standings.length >= 3) {
+      thirds.push({ group: g, team: standings[2].name, pts: standings[2].pts, gd: standings[2].gf - standings[2].ga, gf: standings[2].gf });
+    }
+  });
+  // Sort by pts, then gd, then gf — take best 8
+  return thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf).slice(0, 8);
+}
+
+function resolveTeam(slot) {
+  // slot like 'A1', 'B2', '3rd-DEF'
+  if (slot.startsWith('3rd-')) {
+    const groups = slot.replace('3rd-', '').split('');
+    const thirds = get3rdPlaceTeams();
+    // Find best 3rd from the specified groups
+    const match = thirds.find(t => groups.includes(t.group));
+    return match ? match.team : slot;
+  }
+  const group = slot[0];
+  const pos = parseInt(slot[1]) - 1;
+  const standings = calcGroupStandings(group);
+  return standings[pos] ? standings[pos].name : slot;
+}
+
+function autoPopulateKnockout() {
+  // Only auto-populate R32 team names — don't touch scores
+  R32_SEEDING.forEach(seed => {
+    const match = KNOCKOUT.r32.find(m => m.id === seed.id);
+    if (!match) return;
+
+    const homeTeam = resolveTeam(seed.home);
+    const awayTeam = resolveTeam(seed.away);
+
+    // Only update if it's still a placeholder (hasn't been manually set)
+    const isHomePlaceholder = match.home.startsWith('Winner') || match.home.startsWith('Runner') || match.home.startsWith('3rd') || match.home.startsWith('W ');
+    const isAwayPlaceholder = match.away.startsWith('Winner') || match.away.startsWith('Runner') || match.away.startsWith('3rd') || match.away.startsWith('W ');
+
+    if (isHomePlaceholder && homeTeam !== seed.home) match.home = homeTeam;
+    if (isAwayPlaceholder && awayTeam !== seed.away) match.away = awayTeam;
+  });
+
+  // Cascade winners through R16 → QF → SF → Final
+  const cascade = [
+    // R16 from R32 winners
+    {round:'r16', matches: [
+      {id:'r16-1', h:'r32-1', a:'r32-2'},
+      {id:'r16-2', h:'r32-3', a:'r32-4'},
+      {id:'r16-3', h:'r32-5', a:'r32-6'},
+      {id:'r16-4', h:'r32-7', a:'r32-8'},
+      {id:'r16-5', h:'r32-9', a:'r32-10'},
+      {id:'r16-6', h:'r32-11',a:'r32-12'},
+      {id:'r16-7', h:'r32-13',a:'r32-14'},
+      {id:'r16-8', h:'r32-15',a:'r32-16'},
+    ], src: 'r32'},
+    // QF from R16 winners
+    {round:'qf', matches: [
+      {id:'qf-1', h:'r16-1', a:'r16-2'},
+      {id:'qf-2', h:'r16-3', a:'r16-4'},
+      {id:'qf-3', h:'r16-5', a:'r16-6'},
+      {id:'qf-4', h:'r16-7', a:'r16-8'},
+    ], src: 'r16'},
+    // SF from QF winners
+    {round:'sf', matches: [
+      {id:'sf-1', h:'qf-1', a:'qf-2'},
+      {id:'sf-2', h:'qf-3', a:'qf-4'},
+    ], src: 'qf'},
+    // Final from SF winners
+    {round:'final', matches: [
+      {id:'final', h:'sf-1', a:'sf-2'},
+    ], src: 'sf'},
+  ];
+
+  cascade.forEach(({round, matches, src}) => {
+    matches.forEach(({id, h, a}) => {
+      const dest = KNOCKOUT[round].find(m => m.id === id);
+      if (!dest) return;
+      const srcH = KNOCKOUT[src].find(m => m.id === h);
+      const srcA = KNOCKOUT[src].find(m => m.id === a);
+      const winH = srcH ? getWinner(srcH) : null;
+      const winA = srcA ? getWinner(srcA) : null;
+
+      const isHomePlaceholder = dest.home.startsWith('W ') || dest.home.startsWith('Winner') || dest.home.startsWith('TBD') || dest.home === '';
+      const isAwayPlaceholder = dest.away.startsWith('W ') || dest.away.startsWith('Winner') || dest.away.startsWith('TBD') || dest.away === '';
+
+      if (winH && isHomePlaceholder) dest.home = winH;
+      if (winA && isAwayPlaceholder) dest.away = winA;
+    });
+  });
+}
+
 function renderBracket() {
   const el = document.getElementById('bracket-container');
   const champ = document.getElementById('champion-container');
   if (!el) return;
 
   loadKnockout();
+  autoPopulateKnockout(); // ← auto-fill from group standings + cascade winners
 
   const rounds = [
     {key:'r32',  label:'Round of 32', matches: KNOCKOUT.r32},
