@@ -1545,13 +1545,20 @@ function applyKOMatch(id){
 }
 
 // Admin
-const ADMIN_PASS='fcf2027';
+// Password is stored as SHA-256 hash — never visible in plain text
+const ADMIN_HASH = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
 let adminUnlocked=false;
 let adminGrpFilter='All';
 
-function checkPass(){
+async function hashPassword(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPass(){
   const v=document.getElementById('admin-pass').value;
-  if(v===ADMIN_PASS){
+  const hashed = await hashPassword(v);
+  if(hashed===ADMIN_HASH){
     adminUnlocked=true;
     document.getElementById('admin-lock').style.display='none';
     document.getElementById('admin-panel').style.display='block';
