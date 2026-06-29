@@ -636,52 +636,90 @@ function norm(n){ return NM[n]||n; }
 function initT(n){ if(!teamStats[n]) teamStats[n]={played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0}; }
 
 // ── CORE: Process local MATCHES array (always runs first, instant) ──
-function processLocalMatches(){
-  teamStats={};
-  MATCHES.forEach(m=>{
-    if(!m.result) return;
-    const parts=m.result.split('-');
-    if(parts.length!==2) return;
-    const hg=parseInt(parts[0]), ag=parseInt(parts[1]);
-    if(isNaN(hg)||isNaN(ag)) return;
-    const h=m.home, a=m.away;
-    initT(h); initT(a);
-    teamStats[h].played++; teamStats[a].played++;
-    teamStats[h].gf+=hg; teamStats[h].ga+=ag;
-    teamStats[a].gf+=ag; teamStats[a].ga+=hg;
-    teamStats[h].pts+=(hg-ag);
-    teamStats[a].pts+=(ag-hg);
-    if(ag===0){teamStats[h].cs++;teamStats[h].pts+=2;}
-    if(hg===0){teamStats[a].cs++;teamStats[a].pts+=2;}
-    if(hg>ag){teamStats[h].wins++;teamStats[h].pts+=4;teamStats[a].losses--;teamStats[a].pts-=1;}
-    else if(ag>hg){teamStats[a].wins++;teamStats[a].pts+=4;teamStats[h].losses--;teamStats[h].pts-=1;}
-    else{teamStats[h].draws++;teamStats[h].pts+=2;teamStats[a].draws++;teamStats[a].pts+=2;}
+// Parse a result string — returns {hg, ag} using only 90-min score
+// Handles: "2-1", "1-1 (4-2 pen)", "1-1 (4-2)"
+function parseScore(result) {
+  if (!result) return null;
+  const main = result.match(/^(\d+)-(\d+)/);
+  if (!main) return null;
+  const hg = parseInt(main[1]), ag = parseInt(main[2]);
+  if (isNaN(hg) || isNaN(ag)) return null;
+  return { hg, ag };
+}
+
+function getPenaltyWinner(result, home, away) {
+  const pen = result.match(/\((\d+)-(\d+)/);
+  if (!pen) return null;
+  const ph = parseInt(pen[1]), pa = parseInt(pen[2]);
+  if (ph > pa) return home;
+  if (pa > ph) return away;
+  return null;
+}
+
+// Get all matches — group stage + knockout — for stats calculation
+function getAllMatchesForStats() {
+  const all = [];
+  MATCHES.forEach(m => {
+    if (!m.result) return;
+    all.push({ home: norm(m.home), away: norm(m.away), result: m.result, isKnockout: false });
   });
-  // Fix: losses starts at 0, increment properly
-  // Re-process correctly
-  teamStats={};
-  MATCHES.forEach(m=>{
-    if(!m.result) return;
-    const parts=m.result.split('-');
-    if(parts.length!==2) return;
-    const hg=parseInt(parts[0]), ag=parseInt(parts[1]);
-    if(isNaN(hg)||isNaN(ag)) return;
-    const h=norm(m.home), a=norm(m.away);
-    if(!teamStats[h]) teamStats[h]={played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
-    if(!teamStats[a]) teamStats[a]={played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
+  const koMatches = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final];
+  koMatches.forEach(m => {
+    if (!m.score) return;
+    const isPlaceholder = t => !t || t.startsWith('W ') || t.startsWith('Winner') ||
+      t.startsWith('Runner') || t.startsWith('3rd') || t.startsWith('TBD') || t === '';
+    if (isPlaceholder(m.home) || isPlaceholder(m.away)) return;
+    all.push({ home: norm(m.home), away: norm(m.away), result: m.score, isKnockout: true });
+  });
+  return all;
+}
+
+function processLocalMatches(){
+  teamStats = {};
+  getAllMatchesForStats().forEach(m => {
+    const parsed = parseScore(m.result);
+    if (!parsed) return;
+    const { hg, ag } = parsed;
+    const h = m.home, a = m.away;
+    if (!teamStats[h]) teamStats[h] = {played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
+    if (!teamStats[a]) teamStats[a] = {played:0,wins:0,draws:0,losses:0,gf:0,ga:0,cs:0,pts:0};
     teamStats[h].played++; teamStats[a].played++;
-    teamStats[h].gf+=hg; teamStats[h].ga+=ag;
-    teamStats[a].gf+=ag; teamStats[a].ga+=hg;
-    // goals: +1 scored, -1 conceded
-    teamStats[h].pts+=(hg-ag);
-    teamStats[a].pts+=(ag-hg);
-    // clean sheets
-    if(ag===0){teamStats[h].cs++;teamStats[h].pts+=2;}
-    if(hg===0){teamStats[a].cs++;teamStats[a].pts+=2;}
-    // win/draw/loss
-    if(hg>ag){teamStats[h].wins++;teamStats[h].pts+=4;teamStats[a].losses++;teamStats[a].pts-=1;}
-    else if(ag>hg){teamStats[a].wins++;teamStats[a].pts+=4;teamStats[h].losses++;teamStats[h].pts-=1;}
-    else{teamStats[h].draws++;teamStats[h].pts+=2;teamStats[a].draws++;teamStats[a].pts+=2;}
+    // Goals: 90-min only (no penalty goals)
+    teamStats[h].gf += hg; teamStats[h].ga += ag;
+    teamStats[a].gf += ag; teamStats[a].ga += hg;
+    // +1 per goal scored, -1 per goal conceded
+    teamStats[h].pts += (hg - ag);
+    teamStats[a].pts += (ag - hg);
+    // Clean sheets: +2 if opponent scored 0 in 90 mins
+    if (ag === 0) { teamStats[h].cs++; teamStats[h].pts += 2; }
+    if (hg === 0) { teamStats[a].cs++; teamStats[a].pts += 2; }
+    // Win/Draw/Loss on 90-min score
+    if (hg > ag) {
+      teamStats[h].wins++; teamStats[h].pts += 4;
+      teamStats[a].losses++; teamStats[a].pts -= 1;
+    } else if (ag > hg) {
+      teamStats[a].wins++; teamStats[a].pts += 4;
+      teamStats[h].losses++; teamStats[h].pts -= 1;
+    } else {
+      // Draw — both get +2
+      teamStats[h].draws++; teamStats[h].pts += 2;
+      teamStats[a].draws++; teamStats[a].pts += 2;
+      // Knockout penalty winner gets +5 WC win bonus
+      if (m.isKnockout) {
+        const penWinner = getPenaltyWinner(m.result, m.home, m.away);
+        if (penWinner && teamStats[penWinner]) {
+          teamStats[penWinner].wins++;
+          teamStats[penWinner].draws--;
+          teamStats[penWinner].pts += 5;
+          const penLoser = penWinner === m.home ? m.away : m.home;
+          if (teamStats[penLoser]) {
+            teamStats[penLoser].draws--;
+            teamStats[penLoser].losses++;
+            teamStats[penLoser].pts -= 3;
+          }
+        }
+      }
+    }
   });
 }
 
@@ -1546,7 +1584,7 @@ function applyKOMatch(id){
 
 // Admin
 // Password is stored as SHA-256 hash — never visible in plain text
-const ADMIN_HASH = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
+const ADMIN_HASH = '6b6393e487a0df4adc8608375cdef77c5c254169e1110d0934bb6c2ba5ff37d3';
 let adminUnlocked=false;
 let adminGrpFilter='All';
 
