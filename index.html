@@ -862,6 +862,8 @@ function renderMatches(){
 function filterM(grp,btn){ activeGrp=grp; renderMatches(); }
 
 function render(){
+  autoPopulateKnockout(); // fill team names + cascade winners first
+  processLocalMatches();  // recalculate stats including knockout scores
   allSorted=calcAll();
   renderStatsBar(allSorted);
   renderLB(allSorted);
@@ -870,59 +872,19 @@ function render(){
   renderPodium(allSorted);
   renderMover(allSorted);
   populateH2H();
-  autoPopulateKnockout(); // keep bracket in sync with results
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
   if(document.getElementById('tab-groups').classList.contains('active')) renderGroups();
   if(document.getElementById('tab-bracket').classList.contains('active')) renderBracket();
 }
 
-// ── FETCH: Try API for newer results, but ALWAYS show local data first ──
+// ── FETCH: Load from Firebase, then render ──
 async function fetchData(){
   const dot=document.getElementById('sdot');
-
-  // STEP 1: Load from Firebase (cloud source of truth)
-  loadFromStorage();
-
-  // STEP 2: Process local hardcoded results immediately
-  processLocalMatches();
+  dot.className='status-dot err';
+  document.getElementById('update-time').textContent='⏳ Refreshing...';
+  await loadFromStorage();
   render();
   dot.className='status-dot';
-  document.getElementById('update-time').textContent='Local data · '+new Date().toLocaleTimeString();
-
-  // STEP 3: Try API in background for any newer results
-  const base=`https://api.football-data.org/v4/competitions/${WC_ID}/matches`;
-  for(const pf of PROXIES){
-    try{
-      const r=await fetch(pf(base),{headers:{'X-Auth-Token':API_KEY}});
-      if(!r.ok) continue;
-      const data=await r.json();
-      const apiFinished=(data.matches||[]).filter(m=>m.status==='FINISHED');
-      if(apiFinished.length>0){
-        // Merge API results into MATCHES array
-        let updated=false;
-        apiFinished.forEach(am=>{
-          const h=norm(am.homeTeam?.name||''), a=norm(am.awayTeam?.name||'');
-          const hg=am.score?.fullTime?.home??0, ag=am.score?.fullTime?.away??0;
-          const local=MATCHES.find(m=>m.home===h&&m.away===a);
-          if(local&&local.result!==`${hg}-${ag}`){ local.result=`${hg}-${ag}`; updated=true; }
-        });
-        if(updated){
-          processLocalMatches();
-          render();
-          dot.className='status-dot';
-          document.getElementById('update-time').textContent='Live · '+new Date().toLocaleTimeString();
-        } else {
-          document.getElementById('update-time').textContent='Up to date · '+new Date().toLocaleTimeString();
-        }
-      } else {
-        document.getElementById('update-time').textContent='Hardcoded · '+new Date().toLocaleTimeString();
-      }
-      return;
-    }catch(e){ continue; }
-  }
-  // API unreachable — local data already shown
-  dot.className='status-dot';
-  document.getElementById('update-time').textContent='Offline mode · '+new Date().toLocaleTimeString();
 }
 
 function switchTab(name,el){
@@ -1321,12 +1283,6 @@ const KNOCKOUT = {
   ],
 };
 
-// Load knockout data — now handled by loadFromStorage() via Firebase
-function loadKnockout() {
-  // No-op: knockout loaded from Firebase in loadFromStorage()
-}
-
-
 async function saveKnockout() {
   // Push everything (results + knockout) to Firebase
   await saveToStorage();
@@ -1650,8 +1606,8 @@ function saveScore(no){
     const btn=document.getElementById('abtn-'+no);
     btn.textContent='✓ Saved'; btn.className='admin-save-btn saved';
     document.getElementById('arow-'+no).className='admin-match-row done';
-    processLocalMatches(); render();
-    saveToStorage(); // async - saves to cloud + localStorage
+    render();
+    saveToStorage();
   }
 }
 
@@ -1755,25 +1711,23 @@ try{
 
 document.querySelectorAll('#header-logo-img,#hero-logo-img').forEach(img=>img.src=LOGO_SRC);
 
-// Show empty standings immediately while Gist loads
+// Show empty standings while Firebase loads
 document.getElementById('sdot').className='status-dot';
-processLocalMatches();
 render();
 document.getElementById('update-time').textContent='⏳ Loading from cloud...';
 
-// Load from Gist — this is the ONLY source of truth
+// Load from Firebase — single source of truth
 (async () => {
   await loadFromStorage();
-  processLocalMatches();
-  render();
+  render(); // render() now calls processLocalMatches() + autoPopulateKnockout() internally
 
   // Auto re-sync every 60 seconds
   setInterval(async ()=>{
     await loadFromStorage();
-    processLocalMatches();
     render();
   }, 60*1000);
 })();
+
 </script>
 </body>
 </html>
