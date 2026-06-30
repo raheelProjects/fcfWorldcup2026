@@ -746,12 +746,26 @@ function processLocalMatches(){
       teamStats[a].wins++; teamStats[a].pts += 4;
       teamStats[h].losses++; teamStats[h].pts -= 1;
     } else {
-      // 90-min draw — both get +2 draw points
-      teamStats[h].draws++; teamStats[h].pts += 2;
-      teamStats[a].draws++; teamStats[a].pts += 2;
-      // Note: penalty shootout only decides who advances in the bracket.
-      // No extra points are awarded for winning on penalties.
-      // The +5 WC Win bonus is awarded manually when the World Cup winner is announced.
+      // 90-min draw — both earn draw points (+2 each)
+      teamStats[h].pts += 2;
+      teamStats[a].pts += 2;
+      if (m.isKnockout) {
+        // Knockout penalty: W/L record goes to pen winner/loser
+        // Points stay at +2 each (earned in 90 mins)
+        const penWinner = getPenaltyWinner(m.result, m.home, m.away);
+        if (penWinner) {
+          const penLoser = penWinner === m.home ? m.away : m.home;
+          teamStats[penWinner].wins++;
+          teamStats[penLoser].losses++;
+        } else {
+          teamStats[h].draws++;
+          teamStats[a].draws++;
+        }
+      } else {
+        // Group stage draw
+        teamStats[h].draws++;
+        teamStats[a].draws++;
+      }
     }
   });
 }
@@ -1466,17 +1480,25 @@ function renderBracket() {
       const aCls = !m.score ? '' : winner===m.away ? 'winner' : '';
       const hTbd = m.home.startsWith('W ') || m.home.startsWith('Winner') || m.home.startsWith('Runner') || m.home.startsWith('3rd');
       const aTbd = m.away.startsWith('W ') || m.away.startsWith('Winner') || m.away.startsWith('Runner') || m.away.startsWith('3rd');
-      const [hs, as_] = m.score ? m.score.split('-') : ['',''];
+      // Parse 90-min score only — strip penalty part
+      const parsed = parseScore(m.score);
+      const hs = parsed ? String(parsed.hg) : '';
+      const as_ = parsed ? String(parsed.ag) : '';
+      // Detect if decided on penalties
+      const isPen = m.score && /\(/.test(m.score) && parsed && parsed.hg === parsed.ag;
+      const penWinner = isPen ? getPenaltyWinner(m.score, m.home, m.away) : null;
+      const hPenBadge = isPen && penWinner === m.home ? '<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px;font-family:Inter,sans-serif;font-weight:700;letter-spacing:0.3px">PEN</span>' : '';
+      const aPenBadge = isPen && penWinner === m.away ? '<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px;font-family:Inter,sans-serif;font-weight:700;letter-spacing:0.3px">PEN</span>' : '';
       return `<div class="bracket-match${round.key==='final'?' final':''}">
         <span class="bracket-match-num">${m.id}</span>
         <div class="bracket-match-inner">
           <div class="bracket-team ${hCls} ${hTbd&&!m.score?'tbd':''}">
-            <span>${m.home}</span>
-            <span class="bracket-score">${hs||''}</span>
+            <span>${m.home}${hPenBadge}</span>
+            <span class="bracket-score">${hs}</span>
           </div>
           <div class="bracket-team ${aCls} ${aTbd&&!m.score?'tbd':''}">
-            <span>${m.away}</span>
-            <span class="bracket-score">${as_||''}</span>
+            <span>${m.away}${aPenBadge}</span>
+            <span class="bracket-score">${as_}</span>
           </div>
         </div>
       </div>`;
