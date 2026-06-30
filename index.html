@@ -746,25 +746,25 @@ function processLocalMatches(){
       teamStats[a].wins++; teamStats[a].pts += 4;
       teamStats[h].losses++; teamStats[h].pts -= 1;
     } else {
-      // 90-min draw — both earn draw points (+2 each)
-      teamStats[h].pts += 2;
-      teamStats[a].pts += 2;
+      // 90-min draw
       if (m.isKnockout) {
-        // Knockout penalty: W/L record goes to pen winner/loser
-        // Points stay at +2 each (earned in 90 mins)
+        // Knockout penalty: winner gets +4 (win), loser gets -1 (loss)
         const penWinner = getPenaltyWinner(m.result, m.home, m.away);
         if (penWinner) {
           const penLoser = penWinner === m.home ? m.away : m.home;
-          teamStats[penWinner].wins++;
-          teamStats[penLoser].losses++;
+          teamStats[penWinner].wins++; teamStats[penWinner].pts += 4;
+          teamStats[penLoser].losses++; teamStats[penLoser].pts -= 1;
         } else {
-          teamStats[h].draws++;
-          teamStats[a].draws++;
+          // No penalty info — treat as draw
+          teamStats[h].draws++; teamStats[h].pts += 2;
+          teamStats[a].draws++; teamStats[a].pts += 2;
         }
       } else {
         // Group stage draw
         teamStats[h].draws++;
         teamStats[a].draws++;
+        teamStats[h].pts += 2;
+        teamStats[a].pts += 2;
       }
     }
   });
