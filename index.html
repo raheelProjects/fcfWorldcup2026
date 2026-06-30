@@ -470,7 +470,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 
       <div style="margin-top:24px;border-top:2px solid var(--border);padding-top:16px;">
         <div class="section-title" style="font-size:16px;">🥊 Knockout Bracket Editor</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter team names and scores for knockout rounds. Use "4-2 (pen)" format for penalty shootouts.</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Enter scores for knockout rounds. For penalties: <b>1-1 (3-4)</b> — 90-min score first, then penalty shootout in brackets. The 90-min score must be a draw for penalties to count.</div>
         <div id="knockout-admin-list"></div>
         <button onclick="(async()=>{await saveKnockout();renderBracket();})();" style="margin-top:12px;background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;">💾 Save Bracket</button>
       </div>
@@ -746,24 +746,12 @@ function processLocalMatches(){
       teamStats[a].wins++; teamStats[a].pts += 4;
       teamStats[h].losses++; teamStats[h].pts -= 1;
     } else {
-      // Draw — both get +2
+      // 90-min draw — both get +2 draw points
       teamStats[h].draws++; teamStats[h].pts += 2;
       teamStats[a].draws++; teamStats[a].pts += 2;
-      // Knockout penalty winner gets +5 WC win bonus
-      if (m.isKnockout) {
-        const penWinner = getPenaltyWinner(m.result, m.home, m.away);
-        if (penWinner && teamStats[penWinner]) {
-          teamStats[penWinner].wins++;
-          teamStats[penWinner].draws--;
-          teamStats[penWinner].pts += 5;
-          const penLoser = penWinner === m.home ? m.away : m.home;
-          if (teamStats[penLoser]) {
-            teamStats[penLoser].draws--;
-            teamStats[penLoser].losses++;
-            teamStats[penLoser].pts -= 3;
-          }
-        }
-      }
+      // Note: penalty shootout only decides who advances in the bracket.
+      // No extra points are awarded for winning on penalties.
+      // The +5 WC Win bonus is awarded manually when the World Cup winner is announced.
     }
   });
 }
@@ -1019,7 +1007,9 @@ async function downloadPNG(){
 function getFormGuide(teamName){
   const results=[];
   MATCHES.filter(m=>m.result&&(norm(m.home)===teamName||norm(m.away)===teamName)).slice(-5).forEach(m=>{
-    const [hg,ag]=m.result.split('-').map(Number);
+    const parsed=parseScore(m.result);
+    if(!parsed)return;
+    const {hg,ag}=parsed;
     const isHome=norm(m.home)===teamName;
     if(hg===ag) results.push('D');
     else if((isHome&&hg>ag)||(!isHome&&ag>hg)) results.push('W');
@@ -1094,9 +1084,25 @@ function renderGoalFeed(){
   const el=document.getElementById('goal-feed-container');
   if(!el)return;
   const events=[];
+
+  // Build a unified list of all played matches (group + knockout)
+  const allPlayed = [];
   MATCHES.filter(m=>m.result).forEach(m=>{
-    const [hg,ag]=m.result.split('-').map(Number);
-    const hn=norm(m.home), an=norm(m.away);
+    allPlayed.push({home:norm(m.home), away:norm(m.away), result:m.result, isKO:false});
+  });
+  const koMatches=[...KNOCKOUT.r32,...KNOCKOUT.r16,...KNOCKOUT.qf,...KNOCKOUT.sf,...KNOCKOUT.final];
+  koMatches.filter(m=>m.score).forEach(m=>{
+    const isPlaceholder=t=>!t||t.startsWith('W ')||t.startsWith('Winner')||t.startsWith('Runner')||t.startsWith('3rd')||t.startsWith('TBD')||t==='';
+    if(isPlaceholder(m.home)||isPlaceholder(m.away))return;
+    allPlayed.push({home:norm(m.home), away:norm(m.away), result:m.score, isKO:true});
+  });
+
+  allPlayed.forEach(m=>{
+    const parsed=parseScore(m.result);
+    if(!parsed)return;
+    const {hg,ag}=parsed;
+    const hn=m.home, an=m.away;
+    // Goals (90-min only — parseScore already strips penalties)
     for(let i=0;i<hg;i++){
       const ben=PARTICIPANTS.filter(p=>p.teams.includes(hn)).map(p=>p.name.split(' ')[0]);
       events.push({icon:'⚽',team:hn,vs:an,type:'goal',pts:'+1',benefit:ben});
@@ -1105,6 +1111,7 @@ function renderGoalFeed(){
       const ben=PARTICIPANTS.filter(p=>p.teams.includes(an)).map(p=>p.name.split(' ')[0]);
       events.push({icon:'⚽',team:an,vs:hn,type:'goal',pts:'+1',benefit:ben});
     }
+    // Clean sheets
     if(ag===0){const ben=PARTICIPANTS.filter(p=>p.teams.includes(hn)).map(p=>p.name.split(' ')[0]);events.push({icon:'🧤',team:hn,vs:an,type:'clean sheet',pts:'+2',benefit:ben});}
     if(hg===0){const ben=PARTICIPANTS.filter(p=>p.teams.includes(an)).map(p=>p.name.split(' ')[0]);events.push({icon:'🧤',team:an,vs:hn,type:'clean sheet',pts:'+2',benefit:ben});}
   });
@@ -1298,15 +1305,13 @@ function loadKnockout() {
 
 function getWinner(match) {
   if (!match.score) return null;
-  const parts = match.score.split('-');
-  if (parts.length !== 2) return null;
-  // Handle penalties: "1-1 (4-3)" format
+  // Extract 90-min score — works for "2-1" AND "1-1 (3-4)"
   const main = match.score.match(/^(\d+)-(\d+)/);
   if (!main) return null;
   const h = parseInt(main[1]), a = parseInt(main[2]);
   if (h > a) return match.home;
   if (a > h) return match.away;
-  // Draw — check penalties
+  // 90-min draw — check penalties e.g. "1-1 (3-4)"
   const pen = match.score.match(/\((\d+)-(\d+)\)/);
   if (pen) return parseInt(pen[1]) > parseInt(pen[2]) ? match.home : match.away;
   return null;
