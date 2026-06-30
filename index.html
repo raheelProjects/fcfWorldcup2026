@@ -629,6 +629,51 @@ const GRP_COLORS = {
   I:"#6d28d9",J:"#b45309",K:"#065f46",L:"#1e40af"
 };
 
+// ── KNOCKOUT BRACKET (defined early so all functions can access it) ──
+const KNOCKOUT = {
+  r32: [
+    {id:'r32-1',  home:'Winner A',  away:'3rd D/E/F',  score:''},
+    {id:'r32-2',  home:'Winner C',  away:'3rd A/B/G',  score:''},
+    {id:'r32-3',  home:'Winner E',  away:'Runner B',   score:''},
+    {id:'r32-4',  home:'Winner G',  away:'Runner H',   score:''},
+    {id:'r32-5',  home:'Winner B',  away:'3rd A/C/D',  score:''},
+    {id:'r32-6',  home:'Winner D',  away:'Runner C',   score:''},
+    {id:'r32-7',  home:'Winner F',  away:'Runner E',   score:''},
+    {id:'r32-8',  home:'Winner H',  away:'3rd B/C/F',  score:''},
+    {id:'r32-9',  home:'Winner I',  away:'3rd G/H/K',  score:''},
+    {id:'r32-10', home:'Winner K',  away:'Runner L',   score:''},
+    {id:'r32-11', home:'Winner J',  away:'Runner I',   score:''},
+    {id:'r32-12', home:'Winner L',  away:'Runner K',   score:''},
+    {id:'r32-13', home:'Runner A',  away:'3rd I/J/L',  score:''},
+    {id:'r32-14', home:'Runner F',  away:'Runner G',   score:''},
+    {id:'r32-15', home:'Runner J',  away:'3rd F/H/I',  score:''},
+    {id:'r32-16', home:'Runner D',  away:'Runner B',   score:''},
+  ],
+  r16: [
+    {id:'r16-1', home:'W R32-1', away:'W R32-2', score:''},
+    {id:'r16-2', home:'W R32-3', away:'W R32-4', score:''},
+    {id:'r16-3', home:'W R32-5', away:'W R32-6', score:''},
+    {id:'r16-4', home:'W R32-7', away:'W R32-8', score:''},
+    {id:'r16-5', home:'W R32-9', away:'W R32-10', score:''},
+    {id:'r16-6', home:'W R32-11', away:'W R32-12', score:''},
+    {id:'r16-7', home:'W R32-13', away:'W R32-14', score:''},
+    {id:'r16-8', home:'W R32-15', away:'W R32-16', score:''},
+  ],
+  qf: [
+    {id:'qf-1', home:'W R16-1', away:'W R16-2', score:''},
+    {id:'qf-2', home:'W R16-3', away:'W R16-4', score:''},
+    {id:'qf-3', home:'W R16-5', away:'W R16-6', score:''},
+    {id:'qf-4', home:'W R16-7', away:'W R16-8', score:''},
+  ],
+  sf: [
+    {id:'sf-1', home:'W QF-1', away:'W QF-2', score:''},
+    {id:'sf-2', home:'W QF-3', away:'W QF-4', score:''},
+  ],
+  final: [
+    {id:'final', home:'W SF-1', away:'W SF-2', score:''},
+  ],
+};
+
 let teamStats = {};
 let allSorted = [];
 
@@ -862,6 +907,7 @@ function renderMatches(){
 function filterM(grp,btn){ activeGrp=grp; renderMatches(); }
 
 function render(){
+  try {
   autoPopulateKnockout(); // fill team names + cascade winners first
   processLocalMatches();  // recalculate stats including knockout scores
   allSorted=calcAll();
@@ -875,6 +921,7 @@ function render(){
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
   if(document.getElementById('tab-groups').classList.contains('active')) renderGroups();
   if(document.getElementById('tab-bracket').classList.contains('active')) renderBracket();
+  } catch(e) { console.error('RENDER ERROR:', e); document.getElementById('leaderboard-container').innerHTML='<div style="color:red;padding:20px">Render error: '+e.message+'</div>'; }
 }
 
 // ── FETCH: Load from Firebase, then render ──
@@ -1236,52 +1283,7 @@ function renderGroups() {
   }).join('');
 }
 
-// ── KNOCKOUT BRACKET ──
-// Structure: 32 teams → R32 → R16 → QF → SF → Final → Champion
-// For WC2026 (48 teams, 12 groups): top 2 from each group + 8 best 3rd = 32 teams
-const KNOCKOUT = {
-  r32: [
-    {id:'r32-1',  home:'Winner A',  away:'3rd D/E/F',  score:''},
-    {id:'r32-2',  home:'Winner C',  away:'3rd A/B/G',  score:''},
-    {id:'r32-3',  home:'Winner E',  away:'Runner B',   score:''},
-    {id:'r32-4',  home:'Winner G',  away:'Runner H',   score:''},
-    {id:'r32-5',  home:'Winner B',  away:'3rd A/C/D',  score:''},
-    {id:'r32-6',  home:'Winner D',  away:'Runner C',   score:''},
-    {id:'r32-7',  home:'Winner F',  away:'Runner E',   score:''},
-    {id:'r32-8',  home:'Winner H',  away:'3rd B/C/F',  score:''},
-    {id:'r32-9',  home:'Winner I',  away:'3rd G/H/K',  score:''},
-    {id:'r32-10', home:'Winner K',  away:'Runner L',   score:''},
-    {id:'r32-11', home:'Winner J',  away:'Runner I',   score:''},
-    {id:'r32-12', home:'Winner L',  away:'Runner K',   score:''},
-    {id:'r32-13', home:'Runner A',  away:'3rd I/J/L',  score:''},
-    {id:'r32-14', home:'Runner F',  away:'Runner G',   score:''},
-    {id:'r32-15', home:'Runner J',  away:'3rd F/H/I',  score:''},
-    {id:'r32-16', home:'Runner D',  away:'Runner B',   score:''},  // adjusted placeholder
-  ],
-  r16: [
-    {id:'r16-1', home:'W R32-1', away:'W R32-2', score:''},
-    {id:'r16-2', home:'W R32-3', away:'W R32-4', score:''},
-    {id:'r16-3', home:'W R32-5', away:'W R32-6', score:''},
-    {id:'r16-4', home:'W R32-7', away:'W R32-8', score:''},
-    {id:'r16-5', home:'W R32-9', away:'W R32-10', score:''},
-    {id:'r16-6', home:'W R32-11', away:'W R32-12', score:''},
-    {id:'r16-7', home:'W R32-13', away:'W R32-14', score:''},
-    {id:'r16-8', home:'W R32-15', away:'W R32-16', score:''},
-  ],
-  qf: [
-    {id:'qf-1', home:'W R16-1', away:'W R16-2', score:''},
-    {id:'qf-2', home:'W R16-3', away:'W R16-4', score:''},
-    {id:'qf-3', home:'W R16-5', away:'W R16-6', score:''},
-    {id:'qf-4', home:'W R16-7', away:'W R16-8', score:''},
-  ],
-  sf: [
-    {id:'sf-1', home:'W QF-1', away:'W QF-2', score:''},
-    {id:'sf-2', home:'W QF-3', away:'W QF-4', score:''},
-  ],
-  final: [
-    {id:'final', home:'W SF-1', away:'W SF-2', score:''},
-  ],
-};
+
 
 async function saveKnockout() {
   // Push everything (results + knockout) to Firebase
