@@ -87,6 +87,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
 .player-name { font-weight: 700; font-size: 14px; color: var(--text); }
 .player-teams { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .team-pill { background: var(--blue-light); color: var(--blue); border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 600; }
+.team-pill.eliminated { background:#fee2e2;color:#ef4444;opacity:0.75; }
+.team-pill.eliminated s { text-decoration-color:#ef4444; }
+.pc-team-eliminated { opacity:0.6; }
+.pc-team-eliminated .pc-team-name { color:#ef4444; }
 .pts-td { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--red); font-weight: 400; }
 .stat-td { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
 .pos { color: var(--green); }
@@ -796,6 +800,33 @@ function renderStatsBar(s){
   `;
 }
 
+// Returns true if a team has been eliminated from the tournament
+function isEliminated(teamName) {
+  const t = norm(teamName);
+  // Check if team lost in any knockout round
+  const koRounds = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final];
+  for (const m of koRounds) {
+    if (!m.score) continue;
+    const winner = getWinner(m);
+    if (!winner) continue;
+    if (norm(m.home) === t || norm(m.away) === t) {
+      // Team played a knockout match
+      if (winner !== m.home && norm(m.home) === t) return true; // home lost
+      if (winner !== m.away && norm(m.away) === t) return true; // away lost
+    }
+  }
+  // Check if team failed to qualify from group stage
+  // (played all 3 group matches but is not in R32)
+  const groupMatches = MATCHES.filter(m => norm(m.home) === t || norm(m.away) === t);
+  const played = groupMatches.filter(m => m.result).length;
+  if (played === 3) {
+    // Check if this team appears in R32 (as a real team, not placeholder)
+    const inR32 = KNOCKOUT.r32.some(m => norm(m.home) === t || norm(m.away) === t);
+    if (!inR32) return true;
+  }
+  return false;
+}
+
 function renderLB(s){
   const el=document.getElementById('leaderboard-container');
   const noGames=s.every(p=>p.pl===0);
@@ -814,7 +845,10 @@ function renderLB(s){
     const rkc=r===1?'rank-gold':r===2?'rank-silver':r===3?'rank-bronze':'';
     const medal=r===1?'🥇 ':r===2?'🥈 ':r===3?'🥉 ':'';
     const gdc=p.gd>0?'pos':p.gd<0?'neg':'neu';
-    const tags=p.teams.map(t=>`<span class="team-pill">${t}</span>`).join('');
+    const tags=p.teams.map(t=>{
+      const out = isEliminated(t);
+      return `<span class="team-pill${out?' eliminated':''}" title="${out?'Eliminated':''}">${out?'<s>'+t+'</s>':t}</span>`;
+    }).join('');
     t+=`<tr class="${rc} ${zone}">
       <td class="rank-num ${rkc}">${r}</td>
       <td><div class="player-name">${medal}${p.name}</div><div class="player-teams">${tags}</div></td>
@@ -840,13 +874,15 @@ function renderCards(s){
     const r=i+1;
     const medal=r===1?'🥇':r===2?'🥈':r===3?'🥉':'';
     const gdc=p.gd>0?'pos':p.gd<0?'neg':'';
-    const teams=p.bd.map(t=>`
-      <div class="pc-team">
+    const teams=p.bd.map(t=>{
+      const out = isEliminated(t.name);
+      return `
+      <div class="pc-team${out?' pc-team-eliminated':''}">
         <div class="pc-team-pts">${t.pts>=0?'+':''}${t.pts}</div>
-        <div class="pc-team-name">${t.name}</div>
+        <div class="pc-team-name">${out?'<s>'+t.name+'</s>':t.name}${out?' <span style="font-size:9px;color:#ef4444;font-weight:700;">OUT</span>':''}</div>
         <div class="pc-team-stats">${t.wins}W ${t.draws}D ${t.losses}L · ${t.gf}GF ${t.ga}GA</div>
         <div style="margin-top:4px">${formHTML(t.name)}</div>
-      </div>`).join('');
+      </div>`}).join('');
     const d=document.createElement('div');
     d.className='player-card';
     d.dataset.name=p.name.toLowerCase();
