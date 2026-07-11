@@ -1098,32 +1098,40 @@ function formHTML(teamName){
 // Podium
 // ── FINAL SHOWDOWN ──
 let showdownVoted = null;
+let localVoteCounts = {}; // track votes locally as ground truth after cast
 
-// Use safe Firebase key (replace spaces/special chars)
 function voteKey(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
 
 async function castVote(name) {
   if (showdownVoted) return;
-  if (adminUnlocked) return; // admin cannot vote
+  if (adminUnlocked) return;
+
+  const btn1 = document.getElementById('vote-btn-1');
+  const btn2 = document.getElementById('vote-btn-2');
+  if (btn1) btn1.disabled = true;
+  if (btn2) btn2.disabled = true;
 
   try {
     const key = voteKey(name);
-    // Read current count
-    const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`);
+    // Cache-busted read
+    const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json?t=${Date.now()}`);
     const current = await res.json();
     const newVal = (typeof current === 'number' ? current : 0) + 1;
-    // Write new count
+    // Write
     const writeRes = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(newVal)
     });
     if (!writeRes.ok) throw new Error('Write failed');
-    // Only record vote after successful Firebase write
+    // Record locally — don't rely on re-fetch
+    localVoteCounts[voteKey(name)] = newVal;
     showdownVoted = name;
     sessionStorage.setItem('fcf_vote', name);
   } catch(e) {
-    alert('Vote failed — please try again.');
+    if (btn1) btn1.disabled = false;
+    if (btn2) btn2.disabled = false;
+    alert('Vote failed — check your connection and try again.');
     return;
   }
   await renderShowdown();
@@ -1137,27 +1145,33 @@ async function renderShowdown() {
   const p1 = allSorted[0], p2 = allSorted[1];
   if (!p1 || !p2) return;
 
-  // Restore vote from session — only valid if it's for one of the current top 2
+  // Restore vote from session — only valid if for current top 2
   if (!showdownVoted) {
     const sv = sessionStorage.getItem('fcf_vote');
     if (sv && (sv === p1.name || sv === p2.name)) showdownVoted = sv;
-    else if (sv) sessionStorage.removeItem('fcf_vote'); // stale vote, clear it
+    else if (sv) sessionStorage.removeItem('fcf_vote');
   }
 
-  // Fetch votes from Firebase using safe keys
+  // Fetch votes — cache busted, with local override after casting
   let votes = { [p1.name]: 0, [p2.name]: 0 };
   try {
-    const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes.json`);
-    const data = await r.json();
-    if (data && typeof data === 'object') {
-      votes[p1.name] = data[voteKey(p1.name)] || 0;
-      votes[p2.name] = data[voteKey(p2.name)] || 0;
+    const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes.json?t=${Date.now()}`);
+    if (r.ok) {
+      const data = await r.json();
+      if (data && typeof data === 'object') {
+        votes[p1.name] = data[voteKey(p1.name)] || 0;
+        votes[p2.name] = data[voteKey(p2.name)] || 0;
+      }
     }
   } catch(e) {}
 
+  // Override with local counts if we just cast a vote (avoids stale cache showing 0)
+  if (localVoteCounts[voteKey(p1.name)] !== undefined) votes[p1.name] = localVoteCounts[voteKey(p1.name)];
+  if (localVoteCounts[voteKey(p2.name)] !== undefined) votes[p2.name] = localVoteCounts[voteKey(p2.name)];
+
   const totalVotes = votes[p1.name] + votes[p2.name];
-  const pct1 = totalVotes > 0 ? Math.round((votes[p1.name] / totalVotes) * 100) : 50;
-  const pct2 = totalVotes > 0 ? 100 - pct1 : 50;
+  const pct1 = totalVotes > 0 ? Math.round((votes[p1.name] / totalVotes) * 100) : 0;
+  const pct2 = totalVotes > 0 ? 100 - pct1 : 0;
   const ptsDiff = Math.abs(p1.pts - p2.pts);
   const hasVoted = !!showdownVoted;
   const showVotes = hasVoted || adminUnlocked;
@@ -1257,12 +1271,12 @@ async function renderShowdown() {
         </span>
       </div>` : !hasVoted ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-        <button onclick="castVote('${p1.name.replace(/'/g,"\\\'")}')"
+        <button id="vote-btn-1" onclick="castVote('${p1.name.replace(/'/g,"\\\'")}')"
           style="background:linear-gradient(135deg,#003DA5,#001a4d);color:#fff;border:2px solid #003DA5;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
           onmouseover="this.style.boxShadow='0 0 20px rgba(0,61,165,0.5)'" onmouseout="this.style.boxShadow='none'">
           👆 ${p1.name.split(' ')[0]}
         </button>
-        <button onclick="castVote('${p2.name.replace(/'/g,"\\\'")}')"
+        <button id="vote-btn-2" onclick="castVote('${p2.name.replace(/'/g,"\\\'")}')"
           style="background:linear-gradient(135deg,#7f1d1d,#3d0000);color:#fff;border:2px solid #991b1b;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
           onmouseover="this.style.boxShadow='0 0 20px rgba(153,27,27,0.5)'" onmouseout="this.style.boxShadow='none'">
           👆 ${p2.name.split(' ')[0]}
@@ -1295,7 +1309,7 @@ async function renderShowdown() {
         </div>
       </div>
       <div style="text-align:center;margin-top:8px;font-size:11px;color:#444;">
-        ${totalVotes === 0 ? 'No votes yet — be the first!' : `${totalVotes} vote${totalVotes!==1?'s':''} cast`}
+        ${totalVotes === 0 ? (hasVoted ? '⏳ Counting votes...' : 'No votes yet — be the first!') : `${totalVotes} vote${totalVotes!==1?'s':''} cast`}
         ${adminUnlocked ? ' <span style="color:#F59E0B;font-weight:700;">· Admin View</span>' : ''}
       </div>` : `
       <div style="text-align:center;padding:12px;font-size:11px;color:#444;">Vote to reveal results</div>`}
