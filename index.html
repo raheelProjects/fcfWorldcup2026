@@ -1098,13 +1098,24 @@ function formHTML(teamName){
 // Podium
 // ── FINAL SHOWDOWN ──
 let showdownVoted = null;
-let localVoteCounts = {}; // track votes locally as ground truth after cast
+let localVoteCounts = {};
+let localVoterName = null;
 
 function voteKey(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
 
-async function castVote(name) {
+async function castVote(candidate) {
   if (showdownVoted) return;
   if (adminUnlocked) return;
+
+  // Get voter name from input
+  const nameInput = document.getElementById('voter-name-input');
+  const voterName = nameInput ? nameInput.value.trim() : '';
+  if (!voterName) {
+    nameInput.style.border = '2px solid #ef4444';
+    nameInput.placeholder = 'Please enter your name first!';
+    nameInput.focus();
+    return;
+  }
 
   const btn1 = document.getElementById('vote-btn-1');
   const btn2 = document.getElementById('vote-btn-2');
@@ -1112,22 +1123,31 @@ async function castVote(name) {
   if (btn2) btn2.disabled = true;
 
   try {
-    const key = voteKey(name);
-    // Cache-busted read
+    const key = voteKey(candidate);
+    // Increment vote count
     const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json?t=${Date.now()}`);
     const current = await res.json();
     const newVal = (typeof current === 'number' ? current : 0) + 1;
-    // Write
     const writeRes = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(newVal)
     });
     if (!writeRes.ok) throw new Error('Write failed');
-    // Record locally — don't rely on re-fetch
-    localVoteCounts[voteKey(name)] = newVal;
-    showdownVoted = name;
-    sessionStorage.setItem('fcf_vote', name);
+
+    // Save voter identity — voterName -> candidate
+    const voterKey = voteKey(voterName);
+    await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/voters/${voterKey}.json`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ name: voterName, votedFor: candidate, time: new Date().toISOString() })
+    });
+
+    localVoteCounts[voteKey(candidate)] = newVal;
+    localVoterName = voterName;
+    showdownVoted = candidate;
+    sessionStorage.setItem('fcf_vote', candidate);
+    sessionStorage.setItem('fcf_voter_name', voterName);
   } catch(e) {
     if (btn1) btn1.disabled = false;
     if (btn2) btn2.disabled = false;
@@ -1148,12 +1168,14 @@ async function renderShowdown() {
   // Restore vote from session — only valid if for current top 2
   if (!showdownVoted) {
     const sv = sessionStorage.getItem('fcf_vote');
-    if (sv && (sv === p1.name || sv === p2.name)) showdownVoted = sv;
-    else if (sv) sessionStorage.removeItem('fcf_vote');
+    const sn = sessionStorage.getItem('fcf_voter_name');
+    if (sv && (sv === p1.name || sv === p2.name)) { showdownVoted = sv; localVoterName = sn; }
+    else if (sv) { sessionStorage.removeItem('fcf_vote'); sessionStorage.removeItem('fcf_voter_name'); }
   }
 
-  // Fetch votes — cache busted, with local override after casting
+  // Fetch votes — cache busted
   let votes = { [p1.name]: 0, [p2.name]: 0 };
+  let voterList = []; // [{name, votedFor, time}]
   try {
     const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes.json?t=${Date.now()}`);
     if (r.ok) {
@@ -1165,7 +1187,20 @@ async function renderShowdown() {
     }
   } catch(e) {}
 
-  // Override with local counts if we just cast a vote (avoids stale cache showing 0)
+  // Fetch voter identities for admin
+  if (adminUnlocked) {
+    try {
+      const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/voters.json?t=${Date.now()}`);
+      if (r.ok) {
+        const data = await r.json();
+        if (data && typeof data === 'object') {
+          voterList = Object.values(data).sort((a,b) => new Date(a.time) - new Date(b.time));
+        }
+      }
+    } catch(e) {}
+  }
+
+  // Override with local counts if we just cast (avoids stale cache)
   if (localVoteCounts[voteKey(p1.name)] !== undefined) votes[p1.name] = localVoteCounts[voteKey(p1.name)];
   if (localVoteCounts[voteKey(p2.name)] !== undefined) votes[p2.name] = localVoteCounts[voteKey(p2.name)];
 
@@ -1270,6 +1305,10 @@ async function renderShowdown() {
           👑 Admin View — voting disabled
         </span>
       </div>` : !hasVoted ? `
+      <input id="voter-name-input" type="text" placeholder="Enter your name to vote..."
+        style="width:100%;box-sizing:border-box;background:#1a1a1a;border:1px solid #333;color:#fff;
+        border-radius:8px;padding:10px 14px;font-size:13px;font-family:inherit;margin-bottom:12px;outline:none;"
+        onfocus="this.style.border='2px solid #60a5fa'" onblur="this.style.border='1px solid #333'"/>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
         <button id="vote-btn-1" onclick="castVote('${p1.name.replace(/'/g,"\\\'")}')"
           style="background:linear-gradient(135deg,#003DA5,#001a4d);color:#fff;border:2px solid #003DA5;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
@@ -1284,11 +1323,11 @@ async function renderShowdown() {
       </div>` : `
       <div style="text-align:center;margin-bottom:14px;">
         <span style="background:#1a2a1a;color:#4ade80;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;">
-          ✅ You voted for <b>${showdownVoted}</b>
+          ✅ ${localVoterName||'You'} voted for <b>${showdownVoted}</b>
         </span>
       </div>`}
 
-      <!-- Vote bars — visible after voting or to admin -->
+      <!-- Vote bars -->
       ${showVotes ? `
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
@@ -1311,7 +1350,27 @@ async function renderShowdown() {
       <div style="text-align:center;margin-top:8px;font-size:11px;color:#444;">
         ${totalVotes === 0 ? (hasVoted ? '⏳ Counting votes...' : 'No votes yet — be the first!') : `${totalVotes} vote${totalVotes!==1?'s':''} cast`}
         ${adminUnlocked ? ' <span style="color:#F59E0B;font-weight:700;">· Admin View</span>' : ''}
-      </div>` : `
+      </div>
+
+      <!-- Admin voter list -->
+      ${adminUnlocked && voterList.length > 0 ? `
+      <div style="margin-top:16px;border-top:1px solid #222;padding-top:14px;">
+        <div style="font-size:10px;letter-spacing:2px;color:#555;margin-bottom:10px;text-transform:uppercase;">Who Voted For Who</div>
+        ${voterList.map(v => {
+          const forP1 = v.votedFor === p1.name;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:#161616;">
+            <span style="font-size:12px;font-weight:700;color:#e2e8f0;">👤 ${v.name}</span>
+            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;
+              background:${forP1?'#003DA5':'#7f1d1d'};color:${forP1?'#93c5fd':'#fca5a5'};">
+              ${v.votedFor.split(' ')[0]}
+            </span>
+          </div>`;
+        }).join('')}
+      </div>` : adminUnlocked ? `
+      <div style="margin-top:16px;border-top:1px solid #222;padding-top:14px;text-align:center;font-size:11px;color:#333;">
+        No votes cast yet
+      </div>` : ''}
+      ` : `
       <div style="text-align:center;padding:12px;font-size:11px;color:#444;">Vote to reveal results</div>`}
     </div>
   </div>`;
