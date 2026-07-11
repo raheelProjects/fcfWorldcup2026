@@ -461,10 +461,11 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   </div>
 
   <div id="tab-bracket" class="tab-panel">
-    <div class="section-title">🥊 Knockout Bracket</div>
-    <div class="bracket-wrap">
-      <div id="bracket-container" class="bracket"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div class="section-title" style="margin:0;">🥊 Knockout Bracket</div>
+      <button class="download-btn" onclick="downloadBracketPNG()" id="bracket-dl-btn">📥 Download PNG</button>
     </div>
+    <div id="bracket-container" style="width:100%;overflow-x:auto;"></div>
     <div id="champion-container"></div>
   </div>
 
@@ -1096,24 +1097,36 @@ function formHTML(teamName){
 
 // Podium
 // ── FINAL SHOWDOWN ──
-let showdownVoted = null; // tracks who current user voted for in sessionStorage
+let showdownVoted = null;
+
+// Use safe Firebase key (replace spaces/special chars)
+function voteKey(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
 
 async function castVote(name) {
   if (showdownVoted) return;
-  showdownVoted = name;
+  if (adminUnlocked) return; // admin cannot vote
+
   try {
-    sessionStorage.setItem('fcf_vote', name);
-    // Increment vote in Firebase
-    const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${encodeURIComponent(name)}.json`);
+    const key = voteKey(name);
+    // Read current count
+    const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`);
     const current = await res.json();
-    const newVal = (current || 0) + 1;
-    await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${encodeURIComponent(name)}.json`, {
+    const newVal = (typeof current === 'number' ? current : 0) + 1;
+    // Write new count
+    const writeRes = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(newVal)
     });
-  } catch(e) {}
-  renderShowdown();
+    if (!writeRes.ok) throw new Error('Write failed');
+    // Only record vote after successful Firebase write
+    showdownVoted = name;
+    sessionStorage.setItem('fcf_vote', name);
+  } catch(e) {
+    alert('Vote failed — please try again.');
+    return;
+  }
+  await renderShowdown();
 }
 
 async function renderShowdown() {
@@ -1124,28 +1137,30 @@ async function renderShowdown() {
   const p1 = allSorted[0], p2 = allSorted[1];
   if (!p1 || !p2) return;
 
-  // Restore vote from session
+  // Restore vote from session — only valid if it's for one of the current top 2
   if (!showdownVoted) {
     const sv = sessionStorage.getItem('fcf_vote');
-    if (sv) showdownVoted = sv;
+    if (sv && (sv === p1.name || sv === p2.name)) showdownVoted = sv;
+    else if (sv) sessionStorage.removeItem('fcf_vote'); // stale vote, clear it
   }
 
-  // Fetch votes from Firebase
+  // Fetch votes from Firebase using safe keys
   let votes = { [p1.name]: 0, [p2.name]: 0 };
   try {
     const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes.json`);
     const data = await r.json();
-    if (data) {
-      votes[p1.name] = data[p1.name] || 0;
-      votes[p2.name] = data[p2.name] || 0;
+    if (data && typeof data === 'object') {
+      votes[p1.name] = data[voteKey(p1.name)] || 0;
+      votes[p2.name] = data[voteKey(p2.name)] || 0;
     }
   } catch(e) {}
 
-  const totalVotes = votes[p1.name] + votes[p2.name] || 1;
-  const pct1 = Math.round((votes[p1.name] / totalVotes) * 100);
-  const pct2 = 100 - pct1;
+  const totalVotes = votes[p1.name] + votes[p2.name];
+  const pct1 = totalVotes > 0 ? Math.round((votes[p1.name] / totalVotes) * 100) : 50;
+  const pct2 = totalVotes > 0 ? 100 - pct1 : 50;
   const ptsDiff = Math.abs(p1.pts - p2.pts);
   const hasVoted = !!showdownVoted;
+  const showVotes = hasVoted || adminUnlocked;
 
   const statRows = [
     { label: 'Points', v1: p1.pts, v2: p2.pts, highlight: true },
@@ -1235,7 +1250,12 @@ async function renderShowdown() {
       <div style="font-size:10px;letter-spacing:3px;color:#444;text-align:center;margin-bottom:6px;text-transform:uppercase;">Community Vote</div>
       <div style="font-size:13px;color:#888;text-align:center;margin-bottom:16px;">Who will win the FCF Fantasy League?</div>
 
-      ${!hasVoted ? `
+      ${adminUnlocked ? `
+      <div style="text-align:center;margin-bottom:14px;">
+        <span style="background:#2a1f00;color:#F59E0B;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;">
+          👑 Admin View — voting disabled
+        </span>
+      </div>` : !hasVoted ? `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
         <button onclick="castVote('${p1.name.replace(/'/g,"\\\'")}')"
           style="background:linear-gradient(135deg,#003DA5,#001a4d);color:#fff;border:2px solid #003DA5;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
@@ -1254,26 +1274,31 @@ async function renderShowdown() {
         </span>
       </div>`}
 
-      <!-- Vote bars -->
+      <!-- Vote bars — visible after voting or to admin -->
+      ${showVotes ? `
       <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <span style="font-size:12px;font-weight:700;color:#60a5fa;">${p1.name.split(' ')[0]}</span>
-          <span style="font-size:12px;font-weight:700;color:#60a5fa;">${pct1}% (${votes[p1.name]})</span>
+          <span style="font-size:12px;font-weight:700;color:#60a5fa;">${pct1}% · ${votes[p1.name]} vote${votes[p1.name]!==1?'s':''}</span>
         </div>
         <div style="background:#222;border-radius:4px;height:10px;overflow:hidden;">
           <div style="height:100%;width:${pct1}%;background:linear-gradient(90deg,#003DA5,#60a5fa);border-radius:4px;transition:width 0.6s;"></div>
         </div>
       </div>
-      <div>
+      <div style="margin-bottom:10px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <span style="font-size:12px;font-weight:700;color:#f87171;">${p2.name.split(' ')[0]}</span>
-          <span style="font-size:12px;font-weight:700;color:#f87171;">${pct2}% (${votes[p2.name]})</span>
+          <span style="font-size:12px;font-weight:700;color:#f87171;">${pct2}% · ${votes[p2.name]} vote${votes[p2.name]!==1?'s':''}</span>
         </div>
         <div style="background:#222;border-radius:4px;height:10px;overflow:hidden;">
           <div style="height:100%;width:${pct2}%;background:linear-gradient(90deg,#991b1b,#f87171);border-radius:4px;transition:width 0.6s;"></div>
         </div>
       </div>
-      <div style="text-align:center;margin-top:12px;font-size:10px;color:#333;">${totalVotes === 1 ? 0 : totalVotes} total votes · updates live</div>
+      <div style="text-align:center;margin-top:8px;font-size:11px;color:#444;">
+        ${totalVotes === 0 ? 'No votes yet — be the first!' : `${totalVotes} vote${totalVotes!==1?'s':''} cast`}
+        ${adminUnlocked ? ' <span style="color:#F59E0B;font-weight:700;">· Admin View</span>' : ''}
+      </div>` : `
+      <div style="text-align:center;padding:12px;font-size:11px;color:#444;">Vote to reveal results</div>`}
     </div>
   </div>`;
 }
@@ -1348,7 +1373,6 @@ function renderTrending() {
     { key: 'final', label: '🔴 Final' },
   ];
 
-  // Only show rounds that have at least 1 scored match
   const available = rounds.filter(r => {
     const ms = KNOCKOUT[r.key] || [];
     return ms.some(m => m.score && !m.home.startsWith('W ') && !m.home.startsWith('Winner'));
@@ -1360,58 +1384,133 @@ function renderTrending() {
     return;
   }
 
-  // Default to latest available round
   if (!available.find(r => r.key === activeTrendRound)) {
     activeTrendRound = available[available.length - 1].key;
   }
 
-  sel.innerHTML = available.map(r =>
-    `<button onclick="setTrendRound('${r.key}',this)"
-      style="padding:7px 14px;border-radius:20px;border:2px solid ${r.key===activeTrendRound?'var(--blue)':'var(--border)'};
-      background:${r.key===activeTrendRound?'var(--blue)':'transparent'};
-      color:${r.key===activeTrendRound?'#fff':'var(--text)'};
+  sel.innerHTML = available.map(r => {
+    const active = r.key === activeTrendRound;
+    return `<button onclick="setTrendRound('${r.key}',this)"
+      style="padding:7px 14px;border-radius:20px;border:2px solid ${active?'var(--blue)':'var(--border)'};
+      background:${active?'var(--blue)':'transparent'};
+      color:${active?'#fff':'var(--text)'};
       font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">
       ${r.label}
-    </button>`
-  ).join('');
+    </button>`;
+  }).join('');
 
-  const data = calcRoundPts(activeTrendRound);
   const roundLabel = rounds.find(r => r.key === activeTrendRound)?.label || '';
+  const roundMatches = (KNOCKOUT[activeTrendRound] || []).filter(m => {
+    const isPlaceholder = t => !t || t.startsWith('W ') || t.startsWith('Winner') ||
+      t.startsWith('Runner') || t.startsWith('3rd') || t.startsWith('TBD') || t === '';
+    return m.score && !isPlaceholder(m.home) && !isPlaceholder(m.away);
+  });
 
-  if (!data || !data.length) {
+  if (!roundMatches.length) {
     container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No completed matches in this round yet.</div>';
     return;
   }
 
-  const max = Math.max(...data.map(p => Math.abs(p.gained)), 1);
+  // Build per-match player impact cards
+  const matchCards = roundMatches.map(m => {
+    const parsed = parseScore(m.score);
+    if (!parsed) return '';
+    const { hg, ag } = parsed;
+    const h = norm(m.home), a = norm(m.away);
+    const penWinner = getPenaltyWinner(m.score, m.home, m.away);
+    const winner = getWinner(m);
+    const isPen = m.score && /\(/.test(m.score) && parsed.hg === parsed.ag;
 
-  container.innerHTML = `
-    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">
-      Points earned by each player's teams during <b>${roundLabel}</b> only.
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      ${data.map((p, i) => {
-        const pct = Math.round((Math.abs(p.gained) / max) * 100);
-        const isPos = p.gained >= 0;
-        const barColor = isPos ? 'var(--green)' : '#ef4444';
-        const rank = i + 1;
-        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
-        const bdText = p.breakdown.map(b => `${b.team} ${b.pts >= 0 ? '+' : ''}${b.pts}`).join(' · ');
-        return `
-          <div style="background:var(--card);border-radius:10px;padding:12px 16px;border:1px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-              <div>
-                <span style="font-size:13px;font-weight:700;">${medal} ${p.name}</span>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px;">${bdText}</div>
-              </div>
-              <span style="font-size:22px;font-weight:800;color:${barColor};">${isPos ? '+' : ''}${p.gained}</span>
-            </div>
-            <div style="background:var(--border);border-radius:4px;height:6px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.4s;"></div>
-            </div>
-          </div>`;
-      }).join('')}
+    const calcPts = (team, gf, ga) => {
+      let pts = gf - ga;
+      if (ga === 0) pts += 2;
+      if (gf > ga) pts += 4;
+      else if (gf === ga && penWinner) { pts += norm(penWinner) === team ? 4 : -1; }
+      else if (gf < ga) pts -= 1;
+      return pts;
+    };
+
+    const hPts = calcPts(h, hg, ag);
+    const aPts = calcPts(a, ag, hg);
+
+    const hOwners = PARTICIPANTS.filter(p => p.teams.map(t=>norm(t)).includes(h));
+    const aOwners = PARTICIPANTS.filter(p => p.teams.map(t=>norm(t)).includes(a));
+
+    const penBadge = `<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700;">PEN</span>`;
+    const hWin = winner === m.home;
+    const aWin = winner === m.away;
+
+    return `
+    <div style="background:var(--card);border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
+      <!-- Match header -->
+      <div style="background:var(--blue);color:#fff;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;justify-content:space-between;">
+        <span>${m.id.toUpperCase()}</span>
+        <span>${activeTrendRound==='final'?'⭐ FINAL':roundLabel.replace(/[🔵🟢🟡🟠🔴] /,'')}</span>
+      </div>
+      <!-- Score row -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px;gap:8px;">
+        <div style="text-align:center;">
+          <div style="font-size:13px;font-weight:800;color:${hWin?'var(--green)':'var(--text)'};">${m.home}${isPen&&hWin?penBadge:''}</div>
+          <div style="font-size:11px;margin-top:2px;color:${hPts>=0?'var(--green)':'#ef4444'};font-weight:700;">${hPts>=0?'+':''}${hPts} pts</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:26px;font-weight:900;color:var(--text);">${hg} – ${ag}</div>
+          ${isPen?`<div style="font-size:10px;color:var(--muted);">(${m.score.match(/\((\d+-\d+)/)?.[1]} pens)</div>`:''}
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:13px;font-weight:800;color:${aWin?'var(--green)':'var(--text)'};">${m.away}${isPen&&aWin?penBadge:''}</div>
+          <div style="font-size:11px;margin-top:2px;color:${aPts>=0?'var(--green)':'#ef4444'};font-weight:700;">${aPts>=0?'+':''}${aPts} pts</div>
+        </div>
+      </div>
+      <!-- Owners -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);">
+        <div style="padding:10px 14px;border-right:1px solid var(--border);">
+          <div style="font-size:9px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px;">BENEFITS</div>
+          ${hOwners.length ? hOwners.map(p=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="font-size:11px;font-weight:600;">${p.name.split(' ')[0]}</span>
+              <span style="font-size:11px;font-weight:700;color:${hPts>=0?'var(--green)':'#ef4444'};">${hPts>=0?'+':''}${hPts}</span>
+            </div>`).join('') : '<div style="font-size:10px;color:var(--muted);">Unowned</div>'}
+        </div>
+        <div style="padding:10px 14px;">
+          <div style="font-size:9px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px;">BENEFITS</div>
+          ${aOwners.length ? aOwners.map(p=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+              <span style="font-size:11px;font-weight:600;">${p.name.split(' ')[0]}</span>
+              <span style="font-size:11px;font-weight:700;color:${aPts>=0?'var(--green)':'#ef4444'};">${aPts>=0?'+':''}${aPts}</span>
+            </div>`).join('') : '<div style="font-size:10px;color:var(--muted);">Unowned</div>'}
+        </div>
+      </div>
     </div>`;
+  }).join('');
+
+  // Round leaderboard — who gained most this round
+  const data = calcRoundPts(activeTrendRound);
+  const max = data ? Math.max(...data.map(p => Math.abs(p.gained)), 1) : 1;
+
+  const leaderboard = data ? `
+    <div style="margin-top:20px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;">Round Leaderboard</div>
+      ${data.map((p,i) => {
+        const isPos = p.gained >= 0;
+        const pct = Math.round((Math.abs(p.gained) / max) * 100);
+        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:12px;min-width:28px;">${medal}</span>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span style="font-size:12px;font-weight:700;">${p.name}</span>
+              <span style="font-size:12px;font-weight:800;color:${isPos?'var(--green)':'#ef4444'};">${isPos?'+':''}${p.gained}</span>
+            </div>
+            <div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${isPos?'var(--green)':'#ef4444'};border-radius:3px;"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  container.innerHTML = matchCards + leaderboard;
 }
 
 function setTrendRound(key, btn) {
@@ -1844,64 +1943,339 @@ function renderBracket() {
   if (!el) return;
 
   loadKnockout();
-  autoPopulateKnockout(); // ← auto-fill from group standings + cascade winners
+  autoPopulateKnockout();
 
-  const rounds = [
-    {key:'r32',  label:'Round of 32', matches: KNOCKOUT.r32},
-    {key:'r16',  label:'Round of 16', matches: KNOCKOUT.r16},
-    {key:'qf',   label:'Quarter Finals', matches: KNOCKOUT.qf},
-    {key:'sf',   label:'Semi Finals', matches: KNOCKOUT.sf},
-    {key:'final',label:'⭐ FINAL', matches: KNOCKOUT.final},
+  // Helper: get display name (short) for a team
+  function short(name) {
+    if (!name) return '?';
+    const isPH = name.startsWith('W ') || name.startsWith('Winner') || name.startsWith('Runner') || name.startsWith('3rd');
+    if (isPH) return '?';
+    // Abbreviate long names
+    const abbr = {'United States':'USA','South Korea':'S.Korea','Saudi Arabia':'S.Arabia',
+      'South Africa':'S.Africa','Costa Rica':'C.Rica','New Zealand':'N.Zealand',
+      'DR Congo':'D.R.Congo','Ivory Coast':'C.Ivoire','Trinidad and Tobago':'T&T',
+      'Bosnia and Herzegovina':'Bosnia','Czech Republic':'Czechia'};
+    return abbr[name] || name;
+  }
+
+  function teamColor(name) {
+    if (!name || name.startsWith('W ') || name.startsWith('Winner') || name.startsWith('Runner') || name.startsWith('3rd')) return '#333';
+    if (isEliminated(norm(name))) return '#5a1a1a';
+    return '#1a2a4a';
+  }
+
+  function textColor(name) {
+    if (!name || name.startsWith('W ') || name.startsWith('Winner') || name.startsWith('Runner') || name.startsWith('3rd')) return '#555';
+    if (isEliminated(norm(name))) return '#ef4444';
+    return '#e2e8f0';
+  }
+
+  // All 32 outer teams in clockwise order matching the image
+  // R32 pairs: [home, away] — each pair feeds into one R16 slot
+  const r32 = KNOCKOUT.r32;
+  const r16 = KNOCKOUT.r16;
+  const qf  = KNOCKOUT.qf;
+  const sf  = KNOCKOUT.sf;
+  const fin = KNOCKOUT.final[0];
+
+  const W = 700, H = 700, CX = 350, CY = 350;
+  const R_OUTER  = 310; // R32 teams
+  const R_R16    = 240; // R16 teams
+  const R_QF     = 175; // QF teams
+  const R_SF     = 115; // SF teams
+  const R_FIN    = 58;  // Final teams
+
+  // Position teams around a circle
+  // 32 teams = 32 slots, each pair of adjacent slots = 1 R32 match
+  // Layout: 16 matches around the circle, teams in pairs
+  // We place them in groups of 4 (pair of teams per match, 16 matches = 64 positions but we use 32 team slots)
+
+  const svgLines = [];
+  const svgNodes = [];
+
+  function polarToXY(angle, r) {
+    const rad = (angle - 90) * Math.PI / 180;
+    return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+  }
+
+  function teamNode(x, y, name, isWinner, size, fontSize, angle) {
+    const bg = teamColor(name);
+    const tc = textColor(name);
+    const label = short(name);
+    const isPH = !name || name.startsWith('W ') || name.startsWith('Winner') || name.startsWith('Runner') || name.startsWith('3rd');
+    const w = size, h = size * 0.55;
+    // Rotate label to follow the circle tangent
+    const rot = angle > 180 ? angle + 90 : angle - 90;
+    return `
+      <g transform="translate(${x},${y}) rotate(${rot})">
+        <rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="4"
+          fill="${isPH ? '#1a1a1a' : bg}" stroke="${isWinner ? '#FFD700' : isPH ? '#333' : '#2d4a7a'}"
+          stroke-width="${isWinner ? 2 : 1}" opacity="${isPH ? 0.5 : 1}"/>
+        <text x="0" y="1" text-anchor="middle" dominant-baseline="middle"
+          font-size="${fontSize}" font-family="Inter,sans-serif" font-weight="${isWinner?'800':'600'}"
+          fill="${isPH ? '#444' : tc}" clip-path="url(#clip-node)">
+          ${isPH ? '?' : (isEliminated(norm(name)) ? '✗ ' : '') + label}
+        </text>
+      </g>`;
+  }
+
+  // Draw connecting lines between rounds
+  function drawLine(x1, y1, x2, y2, color='#2a3a5a', width=1.5) {
+    svgLines.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" opacity="0.6"/>`);
+  }
+
+  // ── Place 32 outer teams ──
+  // 16 R32 matches, each match gets 2 adjacent slots
+  // Angle step per team: 360/32 = 11.25°
+  // Match i occupies angles: i*22.5° and i*22.5°+11.25°
+  const r32WinnerPos = []; // midpoint angle of each R32 match → feeds R16
+
+  for (let i = 0; i < 16; i++) {
+    const m = r32[i];
+    if (!m) continue;
+    const angleA = i * 22.5;
+    const angleB = i * 22.5 + 11.25;
+    const midAngle = i * 22.5 + 5.625;
+
+    const posA = polarToXY(angleA, R_OUTER);
+    const posB = polarToXY(angleB, R_OUTER);
+    const midR32 = polarToXY(midAngle, R_OUTER - 28);
+    const midR16in = polarToXY(midAngle, R_R16 + 28);
+
+    const winner = getWinner(m);
+
+    // Team nodes
+    svgNodes.push(teamNode(posA.x, posA.y, m.home, winner===m.home, 72, 7.5, angleA));
+    svgNodes.push(teamNode(posB.x, posB.y, m.away, winner===m.away, 72, 7.5, angleB));
+
+    // Line from each team to midpoint, then to R16
+    drawLine(posA.x, posA.y, midR32.x, midR32.y);
+    drawLine(posB.x, posB.y, midR32.x, midR32.y);
+    drawLine(midR32.x, midR32.y, midR16in.x, midR16in.y);
+
+    r32WinnerPos.push({ angle: midAngle, winner });
+  }
+
+  // ── Place R16 teams ──
+  // 8 R16 matches, each gets 2 adjacent R32 winner slots
+  const r16WinnerPos = [];
+
+  for (let i = 0; i < 8; i++) {
+    const m = r16[i];
+    if (!m) continue;
+    // R16 match i is fed by R32 matches 2i and 2i+1
+    const angleA = r32WinnerPos[i*2]?.angle ?? (i * 45);
+    const angleB = r32WinnerPos[i*2+1]?.angle ?? (i * 45 + 22.5);
+    const midAngle = (angleA + angleB) / 2;
+
+    const posA = polarToXY(angleA, R_R16);
+    const posB = polarToXY(angleB, R_R16);
+    const midR16 = polarToXY(midAngle, R_R16 - 28);
+    const midQFin = polarToXY(midAngle, R_QF + 28);
+
+    const winner = getWinner(m);
+    const hName = m.home.startsWith('W ') ? (r32WinnerPos[i*2]?.winner || '') : m.home;
+    const aName = m.away.startsWith('W ') ? (r32WinnerPos[i*2+1]?.winner || '') : m.away;
+
+    svgNodes.push(teamNode(posA.x, posA.y, hName, winner && norm(winner)===norm(hName), 68, 7, angleA));
+    svgNodes.push(teamNode(posB.x, posB.y, aName, winner && norm(winner)===norm(aName), 68, 7, angleB));
+
+    drawLine(posA.x, posA.y, midR16.x, midR16.y, '#2a4a7a');
+    drawLine(posB.x, posB.y, midR16.x, midR16.y, '#2a4a7a');
+    drawLine(midR16.x, midR16.y, midQFin.x, midQFin.y, '#2a4a7a');
+
+    r16WinnerPos.push({ angle: midAngle, winner });
+  }
+
+  // ── Place QF teams ──
+  const qfWinnerPos = [];
+
+  for (let i = 0; i < 4; i++) {
+    const m = qf[i];
+    if (!m) continue;
+    const angleA = r16WinnerPos[i*2]?.angle ?? (i * 90);
+    const angleB = r16WinnerPos[i*2+1]?.angle ?? (i * 90 + 45);
+    const midAngle = (angleA + angleB) / 2;
+
+    const posA = polarToXY(angleA, R_QF);
+    const posB = polarToXY(angleB, R_QF);
+    const midQF = polarToXY(midAngle, R_QF - 26);
+    const midSFin = polarToXY(midAngle, R_SF + 24);
+
+    const winner = getWinner(m);
+    const hName = m.home.startsWith('W ') ? (r16WinnerPos[i*2]?.winner || '') : m.home;
+    const aName = m.away.startsWith('W ') ? (r16WinnerPos[i*2+1]?.winner || '') : m.away;
+
+    svgNodes.push(teamNode(posA.x, posA.y, hName, winner && norm(winner)===norm(hName), 64, 7, angleA));
+    svgNodes.push(teamNode(posB.x, posB.y, aName, winner && norm(winner)===norm(aName), 64, 7, angleB));
+
+    drawLine(posA.x, posA.y, midQF.x, midQF.y, '#3a5a9a', 2);
+    drawLine(posB.x, posB.y, midQF.x, midQF.y, '#3a5a9a', 2);
+    drawLine(midQF.x, midQF.y, midSFin.x, midSFin.y, '#3a5a9a', 2);
+
+    qfWinnerPos.push({ angle: midAngle, winner });
+  }
+
+  // ── Place SF teams ──
+  const sfWinnerPos = [];
+
+  for (let i = 0; i < 2; i++) {
+    const m = sf[i];
+    if (!m) continue;
+    const angleA = qfWinnerPos[i*2]?.angle ?? (i * 180);
+    const angleB = qfWinnerPos[i*2+1]?.angle ?? (i * 180 + 90);
+    const midAngle = (angleA + angleB) / 2;
+
+    const posA = polarToXY(angleA, R_SF);
+    const posB = polarToXY(angleB, R_SF);
+    const midSF = polarToXY(midAngle, R_SF - 24);
+    const midFin = polarToXY(midAngle, R_FIN + 20);
+
+    const winner = getWinner(m);
+    const hName = m.home.startsWith('W ') ? (qfWinnerPos[i*2]?.winner || '') : m.home;
+    const aName = m.away.startsWith('W ') ? (qfWinnerPos[i*2+1]?.winner || '') : m.away;
+
+    svgNodes.push(teamNode(posA.x, posA.y, hName, winner && norm(winner)===norm(hName), 60, 7, angleA));
+    svgNodes.push(teamNode(posB.x, posB.y, aName, winner && norm(winner)===norm(aName), 60, 7, angleB));
+
+    drawLine(posA.x, posA.y, midSF.x, midSF.y, '#5a7aca', 2.5);
+    drawLine(posB.x, posB.y, midSF.x, midSF.y, '#5a7aca', 2.5);
+    drawLine(midSF.x, midSF.y, midFin.x, midFin.y, '#5a7aca', 2.5);
+
+    sfWinnerPos.push({ angle: midAngle, winner });
+  }
+
+  // ── Final & Champion ──
+  const champion = getWinner(fin);
+  const finH = fin.home.startsWith('W ') ? (sfWinnerPos[0]?.winner || '') : fin.home;
+  const finA = fin.away.startsWith('W ') ? (sfWinnerPos[1]?.winner || '') : fin.away;
+
+  const posFinH = sfWinnerPos[0] ? polarToXY(sfWinnerPos[0].angle, R_FIN) : {x:CX, y:CY-R_FIN};
+  const posFinA = sfWinnerPos[1] ? polarToXY(sfWinnerPos[1].angle, R_FIN) : {x:CX, y:CY+R_FIN};
+
+  svgNodes.push(teamNode(posFinH.x, posFinH.y, finH, champion && norm(champion)===norm(finH), 58, 6.5, sfWinnerPos[0]?.angle ?? 0));
+  svgNodes.push(teamNode(posFinA.x, posFinA.y, finA, champion && norm(champion)===norm(finA), 58, 6.5, sfWinnerPos[1]?.angle ?? 180));
+
+  // Draw lines to center
+  drawLine(posFinH.x, posFinH.y, CX, CY, '#FFD700', 2.5);
+  drawLine(posFinA.x, posFinA.y, CX, CY, '#FFD700', 2.5);
+
+  // ── Centre trophy / champion ──
+  const centreHTML = champion
+    ? `<text x="${CX}" y="${CY-14}" text-anchor="middle" font-size="22">🏆</text>
+       <text x="${CX}" y="${CY+2}" text-anchor="middle" font-size="7.5" font-family="Inter,sans-serif" font-weight="800" fill="#FFD700">${short(champion)}</text>
+       <text x="${CX}" y="${CY+13}" text-anchor="middle" font-size="6" font-family="Inter,sans-serif" fill="#aaa">CHAMPION</text>`
+    : `<text x="${CX}" y="${CY-10}" text-anchor="middle" font-size="26">🏆</text>
+       <text x="${CX}" y="${CY+8}" text-anchor="middle" font-size="7" font-family="Inter,sans-serif" fill="#FFD700" font-weight="700">WORLD</text>
+       <text x="${CX}" y="${CY+18}" text-anchor="middle" font-size="7" font-family="Inter,sans-serif" fill="#FFD700" font-weight="700">CHAMPION</text>`;
+
+  // ── Round labels (arcs) ──
+  const roundRings = [
+    { r: R_OUTER - 52, label: 'ROUND OF 32', color: '#334' },
+    { r: R_R16 - 48,   label: 'ROUND OF 16', color: '#334' },
+    { r: R_QF - 44,    label: 'QUARTER FINALS', color: '#334' },
+    { r: R_SF - 36,    label: 'SEMI FINALS', color: '#334' },
   ];
 
-  el.innerHTML = rounds.map(round => {
-    const matchesHTML = round.matches.map(m => {
-      const winner = getWinner(m);
-      const hCls = !m.score ? '' : winner===m.home ? 'winner' : '';
-      const aCls = !m.score ? '' : winner===m.away ? 'winner' : '';
-      const hTbd = m.home.startsWith('W ') || m.home.startsWith('Winner') || m.home.startsWith('Runner') || m.home.startsWith('3rd');
-      const aTbd = m.away.startsWith('W ') || m.away.startsWith('Winner') || m.away.startsWith('Runner') || m.away.startsWith('3rd');
-      // Parse 90-min score only — strip penalty part
-      const parsed = parseScore(m.score);
-      const hs = parsed ? String(parsed.hg) : '';
-      const as_ = parsed ? String(parsed.ag) : '';
-      // Detect if decided on penalties
-      const isPen = m.score && /\(/.test(m.score) && parsed && parsed.hg === parsed.ag;
-      const penWinner = isPen ? getPenaltyWinner(m.score, m.home, m.away) : null;
-      const hPenBadge = isPen && penWinner === m.home ? '<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px;font-family:Inter,sans-serif;font-weight:700;letter-spacing:0.3px">PEN</span>' : '';
-      const aPenBadge = isPen && penWinner === m.away ? '<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 4px;margin-left:4px;font-family:Inter,sans-serif;font-weight:700;letter-spacing:0.3px">PEN</span>' : '';
-      return `<div class="bracket-match${round.key==='final'?' final':''}">
-        <span class="bracket-match-num">${m.id}</span>
-        <div class="bracket-match-inner">
-          <div class="bracket-team ${hCls} ${hTbd&&!m.score?'tbd':''}">
-            <span>${m.home}${hPenBadge}</span>
-            <span class="bracket-score">${hs}</span>
-          </div>
-          <div class="bracket-team ${aCls} ${aTbd&&!m.score?'tbd':''}">
-            <span>${m.away}${aPenBadge}</span>
-            <span class="bracket-score">${as_}</span>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+  const ringCircles = roundRings.map(rr =>
+    `<circle cx="${CX}" cy="${CY}" r="${rr.r}" fill="none" stroke="${rr.color}" stroke-width="0.5" stroke-dasharray="3,4" opacity="0.4"/>`
+  ).join('');
 
-    return `<div class="bracket-round">
-      <div class="bracket-round-title">${round.label}</div>
-      <div class="bracket-matches">${matchesHTML}</div>
-    </div>`;
-  }).join('');
+  const svg = `
+  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+    style="width:100%;max-width:700px;display:block;margin:0 auto;background:#08090f;border-radius:16px;">
+    <defs>
+      <clipPath id="clip-node"><rect x="-36" y="-12" width="72" height="24"/></clipPath>
+      <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#0d1117"/>
+        <stop offset="100%" stop-color="#08090f"/>
+      </radialGradient>
+    </defs>
 
-  // Champion display
-  const finalMatch = KNOCKOUT.final[0];
-  const champion = getWinner(finalMatch);
-  if (champion) {
-    champ.innerHTML = `<div class="champion-box">
-      <span class="champion-trophy">🏆</span>
-      <div class="champion-label">World Cup 2026 Champion</div>
-      <div class="champion-name">${champion}</div>
-    </div>`;
-  } else {
-    champ.innerHTML = '';
+    <!-- Background -->
+    <circle cx="${CX}" cy="${CY}" r="340" fill="url(#bgGrad)"/>
+
+    <!-- Faint guide rings -->
+    ${ringCircles}
+    <circle cx="${CX}" cy="${CY}" r="${R_OUTER}" fill="none" stroke="#1a2a4a" stroke-width="1" opacity="0.3"/>
+    <circle cx="${CX}" cy="${CY}" r="${R_R16}"  fill="none" stroke="#1a2a4a" stroke-width="1" opacity="0.3"/>
+    <circle cx="${CX}" cy="${CY}" r="${R_QF}"   fill="none" stroke="#1a2a4a" stroke-width="1" opacity="0.3"/>
+    <circle cx="${CX}" cy="${CY}" r="${R_SF}"   fill="none" stroke="#1a2a4a" stroke-width="1" opacity="0.3"/>
+
+    <!-- Connecting lines -->
+    ${svgLines.join('\n')}
+
+    <!-- Centre glow -->
+    <circle cx="${CX}" cy="${CY}" r="38" fill="#0d1117" stroke="#FFD700" stroke-width="1.5" opacity="0.9"/>
+    <circle cx="${CX}" cy="${CY}" r="30" fill="#111" opacity="0.6"/>
+
+    <!-- Team nodes -->
+    ${svgNodes.join('\n')}
+
+    <!-- Centre trophy / champion -->
+    ${centreHTML}
+
+    <!-- Title -->
+    <text x="${CX}" y="18" text-anchor="middle" font-size="11" font-family="'Bebas Neue',Inter,sans-serif"
+      fill="#ffffff" letter-spacing="3" opacity="0.7">FIFA WORLD CUP 2026</text>
+  </svg>`;
+
+  el.innerHTML = svg;
+
+  // Legend below
+  if (champ) {
+    const champion2 = getWinner(fin);
+    champ.innerHTML = champion2
+      ? `<div class="champion-box"><span class="champion-trophy">🏆</span>
+         <div class="champion-label">World Cup 2026 Champion</div>
+         <div class="champion-name">${champion2}</div></div>`
+      : '';
+  }
+}
+
+async function downloadBracketPNG() {
+  const btn = document.getElementById('bracket-dl-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating...'; }
+  const svgEl = document.querySelector('#bracket-container svg');
+  if (!svgEl) { alert('Bracket not loaded yet.'); if(btn){btn.disabled=false;btn.innerHTML='📥 Download PNG';} return; }
+  try {
+    // Serialise SVG → canvas → PNG
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = (img.height + 60) * scale;
+      const ctx = canvas.getContext('2d');
+      // Dark background
+      ctx.fillStyle = '#08090f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Header text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${14*scale}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('FCF FIFA 2026 — Knockout Bracket', canvas.width/2, 22*scale);
+      ctx.fillStyle = '#555';
+      ctx.font = `${9*scale}px Inter, sans-serif`;
+      ctx.fillText(new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}), canvas.width/2, 34*scale);
+      // SVG image
+      ctx.drawImage(img, 0, 44*scale, img.width*scale, img.height*scale);
+      URL.revokeObjectURL(url);
+      const link = document.createElement('a');
+      const now = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      link.download = `FCF-Bracket-${now.replace(/ /g,'-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      if (btn) { btn.disabled = false; btn.innerHTML = '📥 Download PNG'; }
+    };
+    img.onerror = () => { alert('PNG export failed.'); if(btn){btn.disabled=false;btn.innerHTML='📥 Download PNG';} };
+    img.src = url;
+  } catch(e) {
+    alert('PNG export failed: ' + e.message);
+    if (btn) { btn.disabled = false; btn.innerHTML = '📥 Download PNG'; }
   }
 }
 
