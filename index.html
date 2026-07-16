@@ -353,12 +353,11 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   <button class="tab active" onclick="switchTab('leaderboard',this)">🏆 Leaderboard</button>
   <button class="tab" onclick="switchTab('cards',this)">🃏 Player Cards</button>
   <button class="tab" onclick="switchTab('groups',this)">📊 Group Standings</button>
-  <button class="tab" onclick="switchTab('trending',this)">🔥 Trending</button>
   <button class="tab" onclick="switchTab('bracket',this)">🥊 Knockout</button>
+  <button class="tab" onclick="switchTab('share',this)">📸 Share</button>
   <button class="tab" onclick="switchTab('matches',this)">📅 Matches</button>
   <button class="tab" onclick="switchTab('rules',this)">📋 Rules</button>
   <button class="tab" onclick="switchTab('stats',this)">📈 Stats</button>
-  <button class="tab" onclick="switchTab('showdown',this)">⚡ Final Showdown</button>
   <button class="tab" onclick="switchTab('h2h',this)">⚔️ H2H</button>
   <button class="tab" onclick="switchTab('admin',this)">🔐 Admin</button>
 </div>
@@ -431,10 +430,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     </div>
   </div>
 
-  <div id="tab-showdown" class="tab-panel">
-    <div id="showdown-container"></div>
-  </div>
-
   <div id="tab-h2h" class="tab-panel">
     <div class="section-title">⚔️ Head to Head</div>
     <div style="background:var(--white);border-radius:12px;box-shadow:var(--shadow);padding:24px;">
@@ -454,12 +449,6 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
   </div>
 
   <!-- KNOCKOUT BRACKET TAB -->
-  <div id="tab-trending" class="tab-panel">
-    <div class="section-title">🔥 Trending — Knockout Round Points</div>
-    <div id="trending-round-selector" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;"></div>
-    <div id="trending-container"></div>
-  </div>
-
   <div id="tab-bracket" class="tab-panel">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div class="section-title" style="margin:0;">🥊 Knockout Bracket</div>
@@ -467,6 +456,17 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-ser
     </div>
     <div id="bracket-container" style="width:100%;overflow-x:auto;"></div>
     <div id="champion-container"></div>
+  </div>
+
+  <div id="tab-share" class="tab-panel">
+    <div class="section-title">📸 Share Cards</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Generate Instagram-ready 1:1 square cards to share with the group.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+      <button class="download-btn" onclick="generateShareCard('leaderboard')">🏆 Full Leaderboard</button>
+      <button class="download-btn" onclick="generateShareCard('top3')">🥇 Top 3 Players</button>
+      <button class="download-btn" onclick="generateShareCard('bracket')">🥊 Bracket Snapshot</button>
+    </div>
+    <div id="share-preview" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
   </div>
 
   <div id="tab-admin" class="tab-panel">
@@ -689,6 +689,9 @@ const KNOCKOUT = {
   final: [
     {id:'final', home:'W SF-1', away:'W SF-2', score:''},
   ],
+  third: [
+    {id:'third', home:'L SF-1', away:'L SF-2', score:''},
+  ],
 };
 
 let teamStats = {};
@@ -725,7 +728,7 @@ function getAllMatchesForStats() {
     if (!m.result) return;
     all.push({ home: norm(m.home), away: norm(m.away), result: m.result, isKnockout: false });
   });
-  const koMatches = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final];
+  const koMatches = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final, ...(KNOCKOUT.third||[])];
   koMatches.forEach(m => {
     if (!m.score) return;
     const isPlaceholder = t => !t || t.startsWith('W ') || t.startsWith('Winner') ||
@@ -817,7 +820,7 @@ function renderStatsBar(s){
 function isEliminated(teamName) {
   const t = norm(teamName);
   // Check if team lost in any knockout round
-  const koRounds = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final];
+  const koRounds = [...KNOCKOUT.r32, ...KNOCKOUT.r16, ...KNOCKOUT.qf, ...KNOCKOUT.sf, ...KNOCKOUT.final, ...(KNOCKOUT.third||[])];
   for (const m of koRounds) {
     if (!m.score) continue;
     const winner = getWinner(m);
@@ -969,10 +972,9 @@ function render(){
   renderPodium(allSorted);
   renderMover(allSorted);
   populateH2H();
-  if(document.getElementById('tab-showdown').classList.contains('active')) renderShowdown();
-  if(document.getElementById('tab-trending').classList.contains('active')) renderTrending();
   if(document.getElementById('tab-matches').classList.contains('active')) renderMatches();
   if(document.getElementById('tab-groups').classList.contains('active')) renderGroups();
+  if(document.getElementById('tab-share').classList.contains('active')) renderShareTab();
   if(document.getElementById('tab-bracket').classList.contains('active')) renderBracket();
   } catch(e) { console.error('RENDER ERROR:', e); document.getElementById('leaderboard-container').innerHTML='<div style="color:red;padding:20px">Render error: '+e.message+'</div>'; }
 }
@@ -992,10 +994,9 @@ function switchTab(name,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   el.classList.add('active');
-  if(name==='showdown') renderShowdown();
-  if(name==='trending') renderTrending();
   if(name==='matches') renderMatches();
   if(name==='groups') renderGroups();
+  if(name==='share') renderShareTab();
   if(name==='bracket') renderBracket();
   if(name==='admin'&&adminUnlocked){ renderAdminMatches(); renderKnockoutAdmin(); }
   if(name==='stats'){ renderPodium(allSorted);renderMover(allSorted);renderGoalFeed(); }
@@ -1097,499 +1098,6 @@ function formHTML(teamName){
 
 // Podium
 // ── FINAL SHOWDOWN ──
-let showdownVoted = null;
-let localVoteCounts = {};
-let localVoterName = null;
-
-function voteKey(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
-
-async function castVote(candidate) {
-  if (showdownVoted) return;
-  if (adminUnlocked) return;
-
-  // Get voter name from input
-  const nameInput = document.getElementById('voter-name-input');
-  const voterName = nameInput ? nameInput.value.trim() : '';
-  if (!voterName) {
-    nameInput.style.border = '2px solid #ef4444';
-    nameInput.placeholder = 'Please enter your name first!';
-    nameInput.focus();
-    return;
-  }
-
-  const btn1 = document.getElementById('vote-btn-1');
-  const btn2 = document.getElementById('vote-btn-2');
-  if (btn1) btn1.disabled = true;
-  if (btn2) btn2.disabled = true;
-
-  try {
-    const key = voteKey(candidate);
-    // Increment vote count
-    const res = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json?t=${Date.now()}`);
-    const current = await res.json();
-    const newVal = (typeof current === 'number' ? current : 0) + 1;
-    const writeRes = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes/${key}.json`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(newVal)
-    });
-    if (!writeRes.ok) throw new Error('Write failed');
-
-    // Save voter identity — voterName -> candidate
-    const voterKey = voteKey(voterName);
-    await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/voters/${voterKey}.json`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ name: voterName, votedFor: candidate, time: new Date().toISOString() })
-    });
-
-    localVoteCounts[voteKey(candidate)] = newVal;
-    localVoterName = voterName;
-    showdownVoted = candidate;
-    sessionStorage.setItem('fcf_vote', candidate);
-    sessionStorage.setItem('fcf_voter_name', voterName);
-  } catch(e) {
-    if (btn1) btn1.disabled = false;
-    if (btn2) btn2.disabled = false;
-    alert('Vote failed — check your connection and try again.');
-    return;
-  }
-  await renderShowdown();
-}
-
-async function renderShowdown() {
-  const el = document.getElementById('showdown-container');
-  if (!el) return;
-  if (!allSorted.length) { el.innerHTML = '<div style="padding:40px;text-align:center;color:#888">Loading...</div>'; return; }
-
-  const p1 = allSorted[0], p2 = allSorted[1];
-  if (!p1 || !p2) return;
-
-  // Restore vote from session — only valid if for current top 2
-  if (!showdownVoted) {
-    const sv = sessionStorage.getItem('fcf_vote');
-    const sn = sessionStorage.getItem('fcf_voter_name');
-    if (sv && (sv === p1.name || sv === p2.name)) { showdownVoted = sv; localVoterName = sn; }
-    else if (sv) { sessionStorage.removeItem('fcf_vote'); sessionStorage.removeItem('fcf_voter_name'); }
-  }
-
-  // Fetch votes — cache busted
-  let votes = { [p1.name]: 0, [p2.name]: 0 };
-  let voterList = []; // [{name, votedFor, time}]
-  try {
-    const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/votes.json?t=${Date.now()}`);
-    if (r.ok) {
-      const data = await r.json();
-      if (data && typeof data === 'object') {
-        votes[p1.name] = data[voteKey(p1.name)] || 0;
-        votes[p2.name] = data[voteKey(p2.name)] || 0;
-      }
-    }
-  } catch(e) {}
-
-  // Fetch voter identities for admin
-  if (adminUnlocked) {
-    try {
-      const r = await fetch(`https://fcf2026wc-default-rtdb.firebaseio.com/fcf2026/voters.json?t=${Date.now()}`);
-      if (r.ok) {
-        const data = await r.json();
-        if (data && typeof data === 'object') {
-          voterList = Object.values(data).sort((a,b) => new Date(a.time) - new Date(b.time));
-        }
-      }
-    } catch(e) {}
-  }
-
-  // Override with local counts if we just cast (avoids stale cache)
-  if (localVoteCounts[voteKey(p1.name)] !== undefined) votes[p1.name] = localVoteCounts[voteKey(p1.name)];
-  if (localVoteCounts[voteKey(p2.name)] !== undefined) votes[p2.name] = localVoteCounts[voteKey(p2.name)];
-
-  const totalVotes = votes[p1.name] + votes[p2.name];
-  const pct1 = totalVotes > 0 ? Math.round((votes[p1.name] / totalVotes) * 100) : 0;
-  const pct2 = totalVotes > 0 ? 100 - pct1 : 0;
-  const ptsDiff = Math.abs(p1.pts - p2.pts);
-  const hasVoted = !!showdownVoted;
-  const showVotes = hasVoted || adminUnlocked;
-
-  const statRows = [
-    { label: 'Points', v1: p1.pts, v2: p2.pts, highlight: true },
-    { label: 'Wins', v1: p1.w, v2: p2.w },
-    { label: 'Goal Diff', v1: p1.gd > 0 ? '+'+p1.gd : p1.gd, v2: p2.gd > 0 ? '+'+p2.gd : p2.gd, raw1: p1.gd, raw2: p2.gd },
-    { label: 'Goals For', v1: p1.gf, v2: p2.gf, raw1: p1.gf, raw2: p2.gf },
-    { label: 'Clean Sheets', v1: p1.cs, v2: p2.cs, raw1: p1.cs, raw2: p2.cs },
-  ];
-
-  el.innerHTML = `
-  <div style="background:#0a0a0a;min-height:100%;padding:24px 16px;font-family:'Inter',sans-serif;border-radius:12px;">
-
-    <!-- Header -->
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:10px;letter-spacing:4px;color:#666;text-transform:uppercase;margin-bottom:6px;">FCF Fantasy League</div>
-      <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:1px;">⚡ FINAL SHOWDOWN</div>
-      <div style="font-size:11px;color:#555;margin-top:4px;">Top 2 players going head-to-head</div>
-    </div>
-
-    <!-- Player Cards -->
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:28px;">
-
-      <!-- Player 1 -->
-      <div style="background:linear-gradient(135deg,#003DA5,#001a4d);border-radius:16px;padding:20px 14px;text-align:center;border:2px solid #003DA5;position:relative;${p1.pts > p2.pts ? 'box-shadow:0 0 24px rgba(0,61,165,0.6);' : ''}">
-        ${p1.pts > p2.pts ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#FFD700;color:#000;font-size:9px;font-weight:900;padding:3px 10px;border-radius:10px;letter-spacing:1px;">LEADING</div>' : ''}
-        <div style="font-size:28px;margin-bottom:6px;">🥇</div>
-        <div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:8px;">${p1.name}</div>
-        <div style="font-size:36px;font-weight:900;color:#60a5fa;">${p1.pts}</div>
-        <div style="font-size:10px;color:#4d7fc4;margin-bottom:10px;">POINTS</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
-          ${p1.teams.map(t => {
-            const out = isEliminated(t);
-            return `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;background:${out?'#3f1515':'#1e3a6e'};color:${out?'#ef4444':'#93c5fd'};${out?'text-decoration:line-through;opacity:0.7;':''}">${t}</span>`;
-          }).join('')}
-        </div>
-      </div>
-
-      <!-- VS -->
-      <div style="text-align:center;">
-        <div style="font-size:20px;font-weight:900;color:#D0021B;letter-spacing:2px;text-shadow:0 0 20px rgba(208,2,27,0.8);">VS</div>
-        ${ptsDiff > 0 ? `<div style="font-size:9px;color:#555;margin-top:6px;">${ptsDiff} pts<br>apart</div>` : '<div style="font-size:9px;color:#FFD700;margin-top:6px;">TIED!</div>'}
-      </div>
-
-      <!-- Player 2 -->
-      <div style="background:linear-gradient(135deg,#7f1d1d,#3d0000);border-radius:16px;padding:20px 14px;text-align:center;border:2px solid #991b1b;position:relative;${p2.pts > p1.pts ? 'box-shadow:0 0 24px rgba(153,27,27,0.6);' : ''}">
-        ${p2.pts > p1.pts ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#FFD700;color:#000;font-size:9px;font-weight:900;padding:3px 10px;border-radius:10px;letter-spacing:1px;">LEADING</div>' : ''}
-        <div style="font-size:28px;margin-bottom:6px;">🥈</div>
-        <div style="font-size:14px;font-weight:800;color:#fff;line-height:1.3;margin-bottom:8px;">${p2.name}</div>
-        <div style="font-size:36px;font-weight:900;color:#f87171;">${p2.pts}</div>
-        <div style="font-size:10px;color:#9b4343;margin-bottom:10px;">POINTS</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
-          ${p2.teams.map(t => {
-            const out = isEliminated(t);
-            return `<span style="font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;background:${out?'#3f1515':'#4a1515'};color:${out?'#ef4444':'#fca5a5'};${out?'text-decoration:line-through;opacity:0.7;':''}">${t}</span>`;
-          }).join('')}
-        </div>
-      </div>
-    </div>
-
-    <!-- Stat Comparison -->
-    <div style="background:#111;border-radius:12px;padding:16px;margin-bottom:24px;border:1px solid #222;">
-      <div style="font-size:10px;letter-spacing:3px;color:#444;text-align:center;margin-bottom:14px;text-transform:uppercase;">Stats Comparison</div>
-      ${statRows.map(s => {
-        const r1 = s.raw1 !== undefined ? s.raw1 : (typeof s.v1 === 'number' ? s.v1 : 0);
-        const r2 = s.raw2 !== undefined ? s.raw2 : (typeof s.v2 === 'number' ? s.v2 : 0);
-        const total = Math.abs(r1) + Math.abs(r2) || 1;
-        const pct = Math.round((Math.max(r1, 0) / Math.max(Math.max(r1,0) + Math.max(r2,0), 1)) * 100);
-        const c1 = r1 > r2 ? '#60a5fa' : r1 < r2 ? '#555' : '#888';
-        const c2 = r2 > r1 ? '#f87171' : r2 < r1 ? '#555' : '#888';
-        return `
-          <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-              <span style="font-size:${s.highlight?'18px':'14px'};font-weight:${s.highlight?'900':'700'};color:${c1};">${s.v1}</span>
-              <span style="font-size:10px;color:#444;letter-spacing:1px;">${s.label.toUpperCase()}</span>
-              <span style="font-size:${s.highlight?'18px':'14px'};font-weight:${s.highlight?'900':'700'};color:${c2};">${s.v2}</span>
-            </div>
-            <div style="display:flex;height:5px;border-radius:3px;overflow:hidden;background:#222;">
-              <div style="width:${pct}%;background:#003DA5;transition:width 0.6s;"></div>
-              <div style="width:${100-pct}%;background:#991b1b;transition:width 0.6s;"></div>
-            </div>
-          </div>`;
-      }).join('')}
-    </div>
-
-    <!-- Voting Panel -->
-    <div style="background:#111;border-radius:12px;padding:20px;border:1px solid #222;">
-      <div style="font-size:10px;letter-spacing:3px;color:#444;text-align:center;margin-bottom:6px;text-transform:uppercase;">Community Vote</div>
-      <div style="font-size:13px;color:#888;text-align:center;margin-bottom:16px;">Who will win the FCF Fantasy League?</div>
-
-      ${adminUnlocked ? `
-      <div style="text-align:center;margin-bottom:14px;">
-        <span style="background:#2a1f00;color:#F59E0B;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;">
-          👑 Admin View — voting disabled
-        </span>
-      </div>` : !hasVoted ? `
-      <input id="voter-name-input" type="text" placeholder="Enter your name to vote..."
-        style="width:100%;box-sizing:border-box;background:#1a1a1a;border:1px solid #333;color:#fff;
-        border-radius:8px;padding:10px 14px;font-size:13px;font-family:inherit;margin-bottom:12px;outline:none;"
-        onfocus="this.style.border='2px solid #60a5fa'" onblur="this.style.border='1px solid #333'"/>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-        <button id="vote-btn-1" onclick="castVote('${p1.name.replace(/'/g,"\\\'")}')"
-          style="background:linear-gradient(135deg,#003DA5,#001a4d);color:#fff;border:2px solid #003DA5;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
-          onmouseover="this.style.boxShadow='0 0 20px rgba(0,61,165,0.5)'" onmouseout="this.style.boxShadow='none'">
-          👆 ${p1.name.split(' ')[0]}
-        </button>
-        <button id="vote-btn-2" onclick="castVote('${p2.name.replace(/'/g,"\\\'")}')"
-          style="background:linear-gradient(135deg,#7f1d1d,#3d0000);color:#fff;border:2px solid #991b1b;border-radius:10px;padding:14px 8px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.2s;"
-          onmouseover="this.style.boxShadow='0 0 20px rgba(153,27,27,0.5)'" onmouseout="this.style.boxShadow='none'">
-          👆 ${p2.name.split(' ')[0]}
-        </button>
-      </div>` : `
-      <div style="text-align:center;margin-bottom:14px;">
-        <span style="background:#1a2a1a;color:#4ade80;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;">
-          ✅ ${localVoterName||'You'} voted for <b>${showdownVoted}</b>
-        </span>
-      </div>`}
-
-      <!-- Vote bars -->
-      ${showVotes ? `
-      <div style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-          <span style="font-size:12px;font-weight:700;color:#60a5fa;">${p1.name.split(' ')[0]}</span>
-          <span style="font-size:12px;font-weight:700;color:#60a5fa;">${pct1}% · ${votes[p1.name]} vote${votes[p1.name]!==1?'s':''}</span>
-        </div>
-        <div style="background:#222;border-radius:4px;height:10px;overflow:hidden;">
-          <div style="height:100%;width:${pct1}%;background:linear-gradient(90deg,#003DA5,#60a5fa);border-radius:4px;transition:width 0.6s;"></div>
-        </div>
-      </div>
-      <div style="margin-bottom:10px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-          <span style="font-size:12px;font-weight:700;color:#f87171;">${p2.name.split(' ')[0]}</span>
-          <span style="font-size:12px;font-weight:700;color:#f87171;">${pct2}% · ${votes[p2.name]} vote${votes[p2.name]!==1?'s':''}</span>
-        </div>
-        <div style="background:#222;border-radius:4px;height:10px;overflow:hidden;">
-          <div style="height:100%;width:${pct2}%;background:linear-gradient(90deg,#991b1b,#f87171);border-radius:4px;transition:width 0.6s;"></div>
-        </div>
-      </div>
-      <div style="text-align:center;margin-top:8px;font-size:11px;color:#444;">
-        ${totalVotes === 0 ? (hasVoted ? '⏳ Counting votes...' : 'No votes yet — be the first!') : `${totalVotes} vote${totalVotes!==1?'s':''} cast`}
-        ${adminUnlocked ? ' <span style="color:#F59E0B;font-weight:700;">· Admin View</span>' : ''}
-      </div>
-
-      <!-- Admin voter list -->
-      ${adminUnlocked && voterList.length > 0 ? `
-      <div style="margin-top:16px;border-top:1px solid #222;padding-top:14px;">
-        <div style="font-size:10px;letter-spacing:2px;color:#555;margin-bottom:10px;text-transform:uppercase;">Who Voted For Who</div>
-        ${voterList.map(v => {
-          const forP1 = v.votedFor === p1.name;
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:#161616;">
-            <span style="font-size:12px;font-weight:700;color:#e2e8f0;">👤 ${v.name}</span>
-            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;
-              background:${forP1?'#003DA5':'#7f1d1d'};color:${forP1?'#93c5fd':'#fca5a5'};">
-              ${v.votedFor.split(' ')[0]}
-            </span>
-          </div>`;
-        }).join('')}
-      </div>` : adminUnlocked ? `
-      <div style="margin-top:16px;border-top:1px solid #222;padding-top:14px;text-align:center;font-size:11px;color:#333;">
-        No votes cast yet
-      </div>` : ''}
-      ` : `
-      <div style="text-align:center;padding:12px;font-size:11px;color:#444;">Vote to reveal results</div>`}
-    </div>
-  </div>`;
-}
-
-// ── TRENDING ──
-let activeTrendRound = 'r32';
-
-function calcRoundPts(roundKey) {
-  // Get all matches for this round with real teams + scores
-  const roundMatches = KNOCKOUT[roundKey] || [];
-  const played = roundMatches.filter(m => {
-    if (!m.score) return false;
-    const isPlaceholder = t => !t || t.startsWith('W ') || t.startsWith('Winner') ||
-      t.startsWith('Runner') || t.startsWith('3rd') || t.startsWith('TBD') || t === '';
-    return !isPlaceholder(m.home) && !isPlaceholder(m.away);
-  });
-  if (!played.length) return null;
-
-  // For each played match calculate pts per team
-  const roundTeamPts = {}; // teamName -> pts gained this round
-  played.forEach(m => {
-    const parsed = parseScore(m.score);
-    if (!parsed) return;
-    const { hg, ag } = parsed;
-    const h = norm(m.home), a = norm(m.away);
-    const penWinner = getPenaltyWinner(m.score, m.home, m.away);
-
-    const calcPts = (team, gf, ga, isHome) => {
-      let pts = 0;
-      pts += gf;       // +1 per goal scored
-      pts -= ga;       // -1 per goal conceded
-      if (ga === 0) pts += 2; // clean sheet +2
-      if (gf > ga) { pts += 4; }               // win +4
-      else if (gf === ga && penWinner) {
-        // penalties: winner gets +4, loser gets -1
-        if (norm(penWinner) === team) pts += 4;
-        else pts -= 1;
-      } else if (gf < ga) { pts -= 1; }        // loss -1
-      return pts;
-    };
-
-    roundTeamPts[h] = (roundTeamPts[h] || 0) + calcPts(h, hg, ag, true);
-    roundTeamPts[a] = (roundTeamPts[a] || 0) + calcPts(a, ag, hg, false);
-  });
-
-  // Map to participants
-  return PARTICIPANTS.map(p => {
-    let gained = 0;
-    const breakdown = [];
-    p.teams.forEach(t => {
-      const tn = norm(t);
-      const pts = roundTeamPts[tn];
-      if (pts !== undefined) {
-        gained += pts;
-        breakdown.push({ team: t, pts });
-      }
-    });
-    return { ...p, gained, breakdown, activeTeams: p.teams.filter(t => roundTeamPts[norm(t)] !== undefined) };
-  }).filter(p => p.activeTeams.length > 0)
-    .sort((a, b) => b.gained - a.gained);
-}
-
-function renderTrending() {
-  const sel = document.getElementById('trending-round-selector');
-  const container = document.getElementById('trending-container');
-
-  const rounds = [
-    { key: 'r32', label: '🔵 Round of 32' },
-    { key: 'r16', label: '🟢 Round of 16' },
-    { key: 'qf',  label: '🟡 Quarter Finals' },
-    { key: 'sf',  label: '🟠 Semi Finals' },
-    { key: 'final', label: '🔴 Final' },
-  ];
-
-  const available = rounds.filter(r => {
-    const ms = KNOCKOUT[r.key] || [];
-    return ms.some(m => m.score && !m.home.startsWith('W ') && !m.home.startsWith('Winner'));
-  });
-
-  if (!available.length) {
-    sel.innerHTML = '';
-    container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No knockout matches played yet. Come back after the Round of 32!</div>';
-    return;
-  }
-
-  if (!available.find(r => r.key === activeTrendRound)) {
-    activeTrendRound = available[available.length - 1].key;
-  }
-
-  sel.innerHTML = available.map(r => {
-    const active = r.key === activeTrendRound;
-    return `<button onclick="setTrendRound('${r.key}',this)"
-      style="padding:7px 14px;border-radius:20px;border:2px solid ${active?'var(--blue)':'var(--border)'};
-      background:${active?'var(--blue)':'transparent'};
-      color:${active?'#fff':'var(--text)'};
-      font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">
-      ${r.label}
-    </button>`;
-  }).join('');
-
-  const roundLabel = rounds.find(r => r.key === activeTrendRound)?.label || '';
-  const roundMatches = (KNOCKOUT[activeTrendRound] || []).filter(m => {
-    const isPlaceholder = t => !t || t.startsWith('W ') || t.startsWith('Winner') ||
-      t.startsWith('Runner') || t.startsWith('3rd') || t.startsWith('TBD') || t === '';
-    return m.score && !isPlaceholder(m.home) && !isPlaceholder(m.away);
-  });
-
-  if (!roundMatches.length) {
-    container.innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No completed matches in this round yet.</div>';
-    return;
-  }
-
-  // Build per-match player impact cards
-  const matchCards = roundMatches.map(m => {
-    const parsed = parseScore(m.score);
-    if (!parsed) return '';
-    const { hg, ag } = parsed;
-    const h = norm(m.home), a = norm(m.away);
-    const penWinner = getPenaltyWinner(m.score, m.home, m.away);
-    const winner = getWinner(m);
-    const isPen = m.score && /\(/.test(m.score) && parsed.hg === parsed.ag;
-
-    const calcPts = (team, gf, ga) => {
-      let pts = gf - ga;
-      if (ga === 0) pts += 2;
-      if (gf > ga) pts += 4;
-      else if (gf === ga && penWinner) { pts += norm(penWinner) === team ? 4 : -1; }
-      else if (gf < ga) pts -= 1;
-      return pts;
-    };
-
-    const hPts = calcPts(h, hg, ag);
-    const aPts = calcPts(a, ag, hg);
-
-    const hOwners = PARTICIPANTS.filter(p => p.teams.map(t=>norm(t)).includes(h));
-    const aOwners = PARTICIPANTS.filter(p => p.teams.map(t=>norm(t)).includes(a));
-
-    const penBadge = `<span style="font-size:9px;background:#F59E0B;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;font-weight:700;">PEN</span>`;
-    const hWin = winner === m.home;
-    const aWin = winner === m.away;
-
-    return `
-    <div style="background:var(--card);border-radius:12px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
-      <!-- Match header -->
-      <div style="background:var(--blue);color:#fff;padding:8px 14px;font-size:11px;font-weight:700;letter-spacing:1px;display:flex;justify-content:space-between;">
-        <span>${m.id.toUpperCase()}</span>
-        <span>${activeTrendRound==='final'?'⭐ FINAL':roundLabel.replace(/[🔵🟢🟡🟠🔴] /,'')}</span>
-      </div>
-      <!-- Score row -->
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:14px;gap:8px;">
-        <div style="text-align:center;">
-          <div style="font-size:13px;font-weight:800;color:${hWin?'var(--green)':'var(--text)'};">${m.home}${isPen&&hWin?penBadge:''}</div>
-          <div style="font-size:11px;margin-top:2px;color:${hPts>=0?'var(--green)':'#ef4444'};font-weight:700;">${hPts>=0?'+':''}${hPts} pts</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:26px;font-weight:900;color:var(--text);">${hg} – ${ag}</div>
-          ${isPen?`<div style="font-size:10px;color:var(--muted);">(${m.score.match(/\((\d+-\d+)/)?.[1]} pens)</div>`:''}
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:13px;font-weight:800;color:${aWin?'var(--green)':'var(--text)'};">${m.away}${isPen&&aWin?penBadge:''}</div>
-          <div style="font-size:11px;margin-top:2px;color:${aPts>=0?'var(--green)':'#ef4444'};font-weight:700;">${aPts>=0?'+':''}${aPts} pts</div>
-        </div>
-      </div>
-      <!-- Owners -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border);">
-        <div style="padding:10px 14px;border-right:1px solid var(--border);">
-          <div style="font-size:9px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px;">BENEFITS</div>
-          ${hOwners.length ? hOwners.map(p=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-              <span style="font-size:11px;font-weight:600;">${p.name.split(' ')[0]}</span>
-              <span style="font-size:11px;font-weight:700;color:${hPts>=0?'var(--green)':'#ef4444'};">${hPts>=0?'+':''}${hPts}</span>
-            </div>`).join('') : '<div style="font-size:10px;color:var(--muted);">Unowned</div>'}
-        </div>
-        <div style="padding:10px 14px;">
-          <div style="font-size:9px;color:var(--muted);font-weight:700;letter-spacing:1px;margin-bottom:6px;">BENEFITS</div>
-          ${aOwners.length ? aOwners.map(p=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-              <span style="font-size:11px;font-weight:600;">${p.name.split(' ')[0]}</span>
-              <span style="font-size:11px;font-weight:700;color:${aPts>=0?'var(--green)':'#ef4444'};">${aPts>=0?'+':''}${aPts}</span>
-            </div>`).join('') : '<div style="font-size:10px;color:var(--muted);">Unowned</div>'}
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // Round leaderboard — who gained most this round
-  const data = calcRoundPts(activeTrendRound);
-  const max = data ? Math.max(...data.map(p => Math.abs(p.gained)), 1) : 1;
-
-  const leaderboard = data ? `
-    <div style="margin-top:20px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;">Round Leaderboard</div>
-      ${data.map((p,i) => {
-        const isPos = p.gained >= 0;
-        const pct = Math.round((Math.abs(p.gained) / max) * 100);
-        const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
-        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <span style="font-size:12px;min-width:28px;">${medal}</span>
-          <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-              <span style="font-size:12px;font-weight:700;">${p.name}</span>
-              <span style="font-size:12px;font-weight:800;color:${isPos?'var(--green)':'#ef4444'};">${isPos?'+':''}${p.gained}</span>
-            </div>
-            <div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:${isPos?'var(--green)':'#ef4444'};border-radius:3px;"></div>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>` : '';
-
-  container.innerHTML = matchCards + leaderboard;
-}
-
-function setTrendRound(key, btn) {
-  activeTrendRound = key;
-  renderTrending();
-}
 
 function renderPodium(s){
   const el=document.getElementById('podium-container');
@@ -1657,7 +1165,7 @@ function renderGoalFeed(){
   MATCHES.filter(m=>m.result).forEach(m=>{
     allPlayed.push({home:norm(m.home), away:norm(m.away), result:m.result, isKO:false});
   });
-  const koMatches=[...KNOCKOUT.r32,...KNOCKOUT.r16,...KNOCKOUT.qf,...KNOCKOUT.sf,...KNOCKOUT.final];
+  const koMatches=[...KNOCKOUT.r32,...KNOCKOUT.r16,...KNOCKOUT.qf,...KNOCKOUT.sf,...KNOCKOUT.final,...(KNOCKOUT.third||[])];
   koMatches.filter(m=>m.score).forEach(m=>{
     const isPlaceholder=t=>!t||t.startsWith('W ')||t.startsWith('Winner')||t.startsWith('Runner')||t.startsWith('3rd')||t.startsWith('TBD')||t==='';
     if(isPlaceholder(m.home)||isPlaceholder(m.away))return;
@@ -2233,6 +1741,12 @@ function renderBracket() {
   drawLine(posFinH.x, posFinH.y, CX, CY, '#FFD700', 2.5);
   drawLine(posFinA.x, posFinA.y, CX, CY, '#FFD700', 2.5);
 
+  // ── 3rd place match info (text below SVG) ──
+  const third = KNOCKOUT.third && KNOCKOUT.third[0];
+  const thirdWinner = third ? getWinner(third) : null;
+  const thirdH = third && !third.home.startsWith('L ') ? third.home : (sfWinnerPos[0] ? (sfWinnerPos[0].winner && getWinner(sf[0]) && norm(getWinner(sf[0]))!==norm(sfWinnerPos[0].winner||'') ? sfWinnerPos[0].winner : '') : '');
+  const thirdA = third && !third.away.startsWith('L ') ? third.away : '';
+
   // ── Centre trophy / champion ──
   const centreHTML = champion
     ? `<text x="${CX}" y="${CY-14}" text-anchor="middle" font-size="22">🏆</text>
@@ -2295,16 +1809,43 @@ function renderBracket() {
 
   el.innerHTML = svg;
 
-  // Legend below
+  // 3rd place match card below the bracket
+  let thirdHTML = '';
+  if (third && (third.home || third.away)) {
+    const isPH = t => !t || t.startsWith('L ') || t.startsWith('W ') || t === '';
+    const th = isPH(third.home) ? '?' : third.home;
+    const ta = isPH(third.away) ? '?' : third.away;
+    const parsed3 = parseScore(third.score);
+    const tw = thirdWinner ? short(thirdWinner) : null;
+    thirdHTML = `
+    <div style="background:var(--card);border-radius:12px;border:1px solid var(--border);padding:14px 18px;margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:700;text-align:center;margin-bottom:10px;">🥉 3RD PLACE MATCH</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;">
+        <div style="text-align:center;">
+          <div style="font-size:13px;font-weight:700;color:${thirdWinner&&norm(thirdWinner)===norm(th)?'var(--green)':'var(--text)'};">${th}</div>
+        </div>
+        <div style="text-align:center;font-size:20px;font-weight:900;color:var(--text);">
+          ${parsed3 ? `${parsed3.hg} – ${parsed3.ag}` : 'vs'}
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:13px;font-weight:700;color:${thirdWinner&&norm(thirdWinner)===norm(ta)?'var(--green)':'var(--text)'};">${ta}</div>
+        </div>
+      </div>
+      ${tw ? `<div style="text-align:center;margin-top:8px;font-size:11px;color:#F59E0B;font-weight:700;">🥉 ${tw} finishes 3rd</div>` : ''}
+    </div>`;
+  }
+
+  // Champion display
+  const champion2 = getWinner(fin);
   if (champ) {
-    const champion2 = getWinner(fin);
-    champ.innerHTML = champion2
+    champ.innerHTML = (champion2
       ? `<div class="champion-box"><span class="champion-trophy">🏆</span>
          <div class="champion-label">World Cup 2026 Champion</div>
          <div class="champion-name">${champion2}</div></div>`
-      : '';
+      : '') + thirdHTML;
   }
-}
+
+} // end renderBracket
 
 async function downloadBracketPNG() {
   const btn = document.getElementById('bracket-dl-btn');
@@ -2352,6 +1893,188 @@ async function downloadBracketPNG() {
   }
 }
 
+function renderShareTab() {
+  // Just ensure preview area is ready
+  const el = document.getElementById('share-preview');
+  if (el && !el.innerHTML) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;">Click a button above to generate a card.</div>';
+  }
+}
+
+async function generateShareCard(type) {
+  const preview = document.getElementById('share-preview');
+  preview.innerHTML = '<div style="color:var(--muted);font-size:12px;">⏳ Generating...</div>';
+
+  const SIZE = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE; canvas.height = SIZE;
+  const ctx = canvas.getContext('2d');
+
+  const BG = '#0d1117';
+  const BLUE = '#2563eb';
+  const GOLD = '#F59E0B';
+  const GREEN = '#22c55e';
+  const RED = '#ef4444';
+  const MUTED = '#6b7280';
+  const TEXT = '#f1f5f9';
+  const CARD = '#161b22';
+  const BORDER = '#21262d';
+
+  function rect(x,y,w,h,r,fill,stroke,sw=1){
+    ctx.beginPath();
+    ctx.roundRect(x,y,w,h,[r]);
+    if(fill){ctx.fillStyle=fill;ctx.fill();}
+    if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=sw;ctx.stroke();}
+  }
+
+  function text(t,x,y,size,color,align='left',weight='600',font='Inter'){
+    ctx.font=`${weight} ${size}px ${font}, sans-serif`;
+    ctx.fillStyle=color;
+    ctx.textAlign=align;
+    ctx.fillText(t,x,y);
+  }
+
+  function header(title) {
+    // Background
+    ctx.fillStyle = BG;
+    ctx.fillRect(0,0,SIZE,SIZE);
+    // Top accent bar
+    const g = ctx.createLinearGradient(0,0,SIZE,0);
+    g.addColorStop(0,BLUE); g.addColorStop(1,GOLD);
+    ctx.fillStyle = g; ctx.fillRect(0,0,SIZE,6);
+    // Title
+    text('FCF FANTASY LEAGUE 2026', SIZE/2, 56, 22, MUTED, 'center', '700');
+    text(title, SIZE/2, 100, 38, TEXT, 'center', '800');
+    // Date
+    const d = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    text(d, SIZE/2, 130, 18, MUTED, 'center', '500');
+    // Divider
+    ctx.fillStyle = BORDER; ctx.fillRect(60,148,SIZE-120,1);
+  }
+
+  if (type === 'leaderboard') {
+    header('🏆 Leaderboard');
+    const s = allSorted;
+    const rows = s.slice(0,20); // top 20
+    const colW = (SIZE-120)/2;
+    const rowH = 38;
+    const startY = 168;
+
+    rows.forEach((p,i) => {
+      const col = i < 10 ? 0 : 1;
+      const row = i % 10;
+      const x = 60 + col * (colW + 20);
+      const y = startY + row * rowH;
+      const rank = i+1;
+      const isTop3 = rank <= 3;
+      const rankColor = rank===1?GOLD:rank===2?'#94a3b8':rank===3?'#cd7c2e':MUTED;
+      const bgColor = isTop3 ? (rank===1?'#1c1a0a':rank===2?'#141419':'#130d08') : (row%2===0?CARD:BG);
+
+      rect(x, y, colW-10, rowH-3, 6, bgColor, isTop3?rankColor:null, 1);
+
+      // Zone dot
+      const total = s.length;
+      const dotColor = rank<=10?GREEN:rank>total-10?RED:'#d97706';
+      ctx.beginPath(); ctx.arc(x+12, y+rowH/2-1, 4, 0, Math.PI*2);
+      ctx.fillStyle=dotColor; ctx.fill();
+
+      text(`${rank}`, x+26, y+rowH/2+5, 12, rankColor, 'left', '700');
+      text(p.name, x+50, y+rowH/2+5, 13, TEXT, 'left', '600');
+      // Active teams count
+      const active = p.teams.filter(t=>!isEliminated(t)).length;
+      text(`${active}/4`, x+colW-70, y+rowH/2+5, 11, active>0?GREEN:RED, 'right', '600');
+      text(`${p.pts}`, x+colW-15, y+rowH/2+5, 14, isTop3?rankColor:TEXT, 'right', '800');
+    });
+
+    // Footer
+    text(`${s.length} players · Updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`, SIZE/2, SIZE-30, 16, MUTED, 'center', '500');
+
+  } else if (type === 'top3') {
+    header('🥇 Top 3 Players');
+    const top3 = allSorted.slice(0,3);
+    const medals = ['🥇','🥈','🥉'];
+    const colors = [GOLD,'#94a3b8','#cd7c2e'];
+    const cardW = SIZE - 120;
+    const cardH = 230;
+    const startY = 168;
+
+    top3.forEach((p,i) => {
+      const y = startY + i*(cardH+14);
+      // Card bg
+      rect(60, y, cardW, cardH, 12, CARD, colors[i], 2);
+      // Rank badge
+      rect(60, y, 70, cardH, 12, colors[i]+'22', null);
+      text(medals[i], 95, y+cardH/2+16, 36, colors[i], 'center', '700');
+
+      // Name & points
+      text(p.name, 148, y+42, 26, TEXT, 'left', '800');
+      text(`${p.pts} pts`, cardW+60-20, y+42, 26, colors[i], 'right', '900');
+
+      // Stats row
+      const stats = [`${p.w}W`, `${p.d}D`, `${p.l}L`, `${p.gf}GF`, `${p.ga}GA`, `${p.cs}CS`];
+      stats.forEach((s,si) => {
+        text(s, 148+si*90, y+76, 14, MUTED, 'left', '600');
+      });
+
+      // Teams
+      p.teams.forEach((t,ti) => {
+        const out = isEliminated(t);
+        const tx = 148 + ti*(cardW-100)/4;
+        rect(tx, y+98, (cardW-108)/4-4, 26, 5, out?'#2a0a0a':BLUE+'22', out?RED:BLUE, 1);
+        text(t.length>10?t.slice(0,9)+'…':t, tx+(cardW-108)/8, y+115, 11, out?RED:TEXT, 'center', out?'700':'600');
+        if(out){
+          ctx.save();
+          ctx.strokeStyle=RED; ctx.lineWidth=1; ctx.globalAlpha=0.5;
+          ctx.beginPath();
+          ctx.moveTo(tx+4, y+111); ctx.lineTo(tx+(cardW-108)/4-8, y+111);
+          ctx.stroke(); ctx.restore();
+        }
+      });
+
+      // Active teams
+      const active = p.teams.filter(t=>!isEliminated(t)).length;
+      text(`${active} team${active!==1?'s':''} still active`, 148, y+cardH-24, 13, active>0?GREEN:RED, 'left', '600');
+    });
+
+    text(`FCF Fantasy League · ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`, SIZE/2, SIZE-30, 16, MUTED, 'center', '500');
+
+  } else if (type === 'bracket') {
+    // Copy the SVG bracket to canvas
+    header('🥊 Knockout Bracket');
+    const svgEl = document.querySelector('#bracket-container svg');
+    if (!svgEl) { preview.innerHTML='<div style="color:red">Open Knockout tab first, then come back here.</div>'; return; }
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const blob = new Blob([svgData],{type:'image/svg+xml'});
+    const url = URL.createObjectURL(blob);
+    await new Promise((res,rej)=>{
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min((SIZE-80)/img.width, (SIZE-180)/img.height);
+        const dw = img.width*s, dh = img.height*s;
+        ctx.drawImage(img, (SIZE-dw)/2, 158, dw, dh);
+        URL.revokeObjectURL(url); res();
+      };
+      img.onerror = rej;
+      img.src = url;
+    });
+    text(`FCF Fantasy League · ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`, SIZE/2, SIZE-30, 16, MUTED, 'center', '500');
+  }
+
+  // Add watermark
+  text('raheelprojects.github.io/fcfWorldcup2026', SIZE/2, SIZE-10, 13, BORDER, 'center', '500');
+
+  // Show preview + download
+  const dataURL = canvas.toDataURL('image/png');
+  const fname = `FCF-${type}-${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'}).replace(/ /g,'-')}.png`;
+  preview.innerHTML = `
+    <div>
+      <img src="${dataURL}" style="width:100%;max-width:400px;border-radius:12px;border:1px solid #222;display:block;margin-bottom:10px;"/>
+      <a href="${dataURL}" download="${fname}">
+        <button class="download-btn">📥 Save ${fname}</button>
+      </a>
+    </div>`;
+}
+
 function renderKnockoutAdmin(){
   const el = document.getElementById('knockout-admin-list');
   if(!el){ console.error('knockout-admin-list not found'); return; }
@@ -2361,7 +2084,8 @@ function renderKnockoutAdmin(){
     {key:'r16',  label:'Round of 16'},
     {key:'qf',   label:'Quarter Finals'},
     {key:'sf',   label:'Semi Finals'},
-    {key:'final',label:'Final'},
+    {key:'final',label:'⭐ Final'},
+    {key:'third',label:'🥉 3rd Place Match'},
   ];
   let out = '';
   rounds.forEach(function(round){
@@ -2382,7 +2106,7 @@ function renderKnockoutAdmin(){
 }
 
 function applyKOMatch(id){
-  ['r32','r16','qf','sf','final'].forEach(round => {
+  ['r32','r16','qf','sf','final','third'].forEach(round => {
     const m = KNOCKOUT[round].find(x => x.id===id);
     if(m){
       m.home  = document.getElementById('ko-home-'+id)?.value || m.home;
@@ -2489,7 +2213,7 @@ async function saveToStorage(){
 
   // Get current knockout data too
   const koData={};
-  ['r32','r16','qf','sf','final'].forEach(function(round){
+  ['r32','r16','qf','sf','final','third'].forEach(function(round){
     KNOCKOUT[round].forEach(function(m){ koData[m.id]={home:m.home,away:m.away,score:m.score}; });
   });
 
@@ -2536,7 +2260,7 @@ async function loadFromStorage(){
         // Load knockout bracket if present
         if(data.knockout && Object.keys(data.knockout).length > 0){
           const kd = data.knockout;
-          ['r32','r16','qf','sf','final'].forEach(round=>{
+          ['r32','r16','qf','sf','final','third'].forEach(round=>{
             KNOCKOUT[round].forEach(m=>{
               if(kd[m.id]){
                 m.home  = kd[m.id].home  || m.home;
