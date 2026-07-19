@@ -801,6 +801,9 @@ function calcAll(){
       gf+=s.gf;ga+=s.ga;cs+=s.cs;pl+=s.played;
       return{name:t,...s};
     });
+    // Apply any bonus points for this player from Firebase
+    const bonusKey = p.name.replace(/[^a-zA-Z0-9]/g, '_');
+    if(bonusPoints[bonusKey]) pts += bonusPoints[bonusKey];
     return{...p,pts,w,d,l,gf,ga,cs,pl,gd:gf-ga,bd};
   }).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.w-a.w||b.gf-a.gf||a.l-b.l||a.ga-b.ga);
 }
@@ -2239,6 +2242,8 @@ async function saveToStorage(){
   }
 }
 
+let bonusPoints = {}; // playerName_key -> bonus pts from Firebase
+
 async function loadFromStorage(){
   // Load from Firebase Realtime Database
   try{
@@ -2268,6 +2273,14 @@ async function loadFromStorage(){
                 m.score = kd[m.id].score || '';
               }
             });
+          });
+        }
+
+        // Load bonus points
+        bonusPoints = {};
+        if(data.bonuses && typeof data.bonuses === 'object'){
+          Object.entries(data.bonuses).forEach(([key, pts])=>{
+            bonusPoints[key] = pts;
           });
         }
 
